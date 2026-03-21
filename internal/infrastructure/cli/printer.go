@@ -161,3 +161,267 @@ func (p *Printer) PrintError(msg string) {
 func (p *Printer) PrintSuccess(msg string) {
 	fmt.Printf("Success: %s\n", msg)
 }
+
+func (p *Printer) FormatEntryDescription(entry *entity.Entry, totalInstallments int) string {
+	desc := entry.Description
+	if entry.CreditCardID != nil {
+		ccPart := "[CC] (" + entry.RealizationDate.Format("02/01/2006") + ")"
+		if totalInstallments > 1 {
+			ccPart += fmt.Sprintf(" (%d/%d)", entry.Installment, totalInstallments)
+		}
+		if desc != "" {
+			ccPart += " - " + desc
+		}
+		desc = ccPart
+	}
+	return desc
+}
+
+func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[int64]*entity.Category, totalInstallments map[int64]int) {
+	expenses := make([]*entity.Entry, 0)
+	incomes := make([]*entity.Entry, 0)
+
+	for _, entry := range entries {
+		if entry.IsExpense() {
+			expenses = append(expenses, entry)
+		} else {
+			incomes = append(incomes, entry)
+		}
+	}
+
+	if len(expenses) > 0 {
+		fmt.Println("=== Expenses ===")
+		fmt.Printf("%-12s | %-15s | %-12s | %s\n", "Date", "Category", "Amount", "Description")
+		fmt.Println(strings.Repeat("-", 80))
+
+		for _, entry := range expenses {
+			dateStr := entry.RealizationDate.Format("02-01-2006")
+			catName := ""
+			if entry.CategoryID != nil {
+				if cat, ok := categories[*entry.CategoryID]; ok {
+					catName = cat.Name
+				}
+			}
+
+			currency := entry.Currency
+			amountStr := fmt.Sprintf("%s %.2f", currency, entry.Amount)
+
+			ti := 0
+			if entry.ParentEntryID != nil {
+				ti = totalInstallments[*entry.ParentEntryID]
+			} else {
+				ti = totalInstallments[entry.ID]
+			}
+
+			desc := p.FormatEntryDescription(entry, ti)
+
+			tagsStr := ""
+			if len(entry.Tags) > 0 {
+				tagsStr = strings.Join(entry.Tags, ", ")
+			}
+
+			fmt.Printf("%-12s | %-15s | %-12s | %s\n", dateStr, catName, amountStr, desc)
+			if tagsStr != "" {
+				fmt.Printf("%-12s   %-15s   %-12s   Tags: %s\n", "", "", "", tagsStr)
+			}
+		}
+		fmt.Println()
+	}
+
+	if len(incomes) > 0 {
+		fmt.Println("=== Incomes ===")
+		fmt.Printf("%-12s | %-15s | %-12s | %s\n", "Date", "Category", "Amount", "Description")
+		fmt.Println(strings.Repeat("-", 80))
+
+		for _, entry := range incomes {
+			dateStr := entry.RealizationDate.Format("02-01-2006")
+			catName := ""
+			if entry.CategoryID != nil {
+				if cat, ok := categories[*entry.CategoryID]; ok {
+					catName = cat.Name
+				}
+			}
+
+			currency := entry.Currency
+			amountStr := fmt.Sprintf("%s %.2f", currency, entry.Amount)
+
+			desc := entry.Description
+
+			tagsStr := ""
+			if len(entry.Tags) > 0 {
+				tagsStr = strings.Join(entry.Tags, ", ")
+			}
+
+			fmt.Printf("%-12s | %-15s | %-12s | %s\n", dateStr, catName, amountStr, desc)
+			if tagsStr != "" {
+				fmt.Printf("%-12s   %-15s   %-12s   Tags: %s\n", "", "", "", tagsStr)
+			}
+		}
+		fmt.Println()
+	}
+}
+
+func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, totalInstallments map[int64]int) {
+	expenses := make([]*entity.Entry, 0)
+	incomes := make([]*entity.Entry, 0)
+
+	for _, entry := range entries {
+		if entry.IsExpense() {
+			expenses = append(expenses, entry)
+		} else {
+			incomes = append(incomes, entry)
+		}
+	}
+
+	if len(expenses) > 0 {
+		fmt.Println("## Expenses")
+		fmt.Println()
+		fmt.Println("| Date | Category | Amount | Description |")
+		fmt.Println("|------|----------|--------|-------------|")
+
+		for _, entry := range expenses {
+			dateStr := entry.RealizationDate.Format("02/01/2006")
+			catName := ""
+			if entry.CategoryID != nil {
+				if cat, ok := categories[*entry.CategoryID]; ok {
+					if cat.Emoji != nil {
+						catName = *cat.Emoji + " " + cat.Name
+					} else {
+						catName = cat.Name
+					}
+				}
+			}
+
+			currency := entry.Currency
+			amountStr := fmt.Sprintf("%s %.2f", currency, entry.Amount)
+
+			ti := 0
+			if entry.ParentEntryID != nil {
+				ti = totalInstallments[*entry.ParentEntryID]
+			} else {
+				ti = totalInstallments[entry.ID]
+			}
+
+			desc := p.FormatEntryDescription(entry, ti)
+
+			tagsStr := ""
+			if len(entry.Tags) > 0 {
+				tagsStr = fmt.Sprintf("`[%s]`", strings.Join(entry.Tags, "`, `"))
+			}
+
+			fmt.Printf("| %s | %s | %s | %s %s |\n", dateStr, catName, amountStr, desc, tagsStr)
+		}
+		fmt.Println()
+	}
+
+	if len(incomes) > 0 {
+		fmt.Println("## Incomes")
+		fmt.Println()
+		fmt.Println("| Date | Category | Amount | Description |")
+		fmt.Println("|------|----------|--------|-------------|")
+
+		for _, entry := range incomes {
+			dateStr := entry.RealizationDate.Format("02/01/2006")
+			catName := ""
+			if entry.CategoryID != nil {
+				if cat, ok := categories[*entry.CategoryID]; ok {
+					if cat.Emoji != nil {
+						catName = *cat.Emoji + " " + cat.Name
+					} else {
+						catName = cat.Name
+					}
+				}
+			}
+
+			currency := entry.Currency
+			amountStr := fmt.Sprintf("%s %.2f", currency, entry.Amount)
+
+			desc := entry.Description
+
+			tagsStr := ""
+			if len(entry.Tags) > 0 {
+				tagsStr = fmt.Sprintf("`[%s]`", strings.Join(entry.Tags, "`, `"))
+			}
+
+			fmt.Printf("| %s | %s | %s | %s %s |\n", dateStr, catName, amountStr, desc, tagsStr)
+		}
+		fmt.Println()
+	}
+}
+
+type AccountBalance struct {
+	Account      *entity.Account
+	TotalIncome  float64
+	TotalExpense float64
+	Balance      float64
+}
+
+func (p *Printer) PrintBalancesTable(accounts []*entity.Account, accountBalances map[int64]*AccountBalance, from, to *time.Time) {
+	for _, acc := range accounts {
+		ab := accountBalances[acc.ID]
+		if ab == nil {
+			ab = &AccountBalance{Account: acc}
+		}
+
+		fmt.Printf("=== %s ===\n", acc.Name)
+		fmt.Println()
+
+		if from != nil || to != nil {
+			period := ""
+			if from != nil {
+				period += from.Format("02/01/2006")
+			}
+			if from != nil && to != nil {
+				period += " - "
+			}
+			if to != nil {
+				period += to.Format("02/01/2006")
+			}
+			fmt.Printf("Period: %s\n", period)
+			fmt.Println()
+		}
+
+		fmt.Printf("  Total Income:  %.2f\n", ab.TotalIncome)
+		fmt.Printf("  Total Expense: %.2f\n", ab.TotalExpense)
+		fmt.Println("  " + strings.Repeat("-", 30))
+		fmt.Printf("  Balance:       %.2f\n", ab.Balance)
+		fmt.Println()
+	}
+}
+
+func (p *Printer) PrintBalancesMarkdown(accounts []*entity.Account, accountBalances map[int64]*AccountBalance, from, to *time.Time) {
+	fmt.Println("# Balances")
+	fmt.Println()
+
+	for _, acc := range accounts {
+		ab := accountBalances[acc.ID]
+		if ab == nil {
+			ab = &AccountBalance{Account: acc}
+		}
+
+		fmt.Printf("## %s\n", acc.Name)
+		fmt.Println()
+
+		if from != nil || to != nil {
+			period := ""
+			if from != nil {
+				period += from.Format("02/01/2006")
+			}
+			if from != nil && to != nil {
+				period += " - "
+			}
+			if to != nil {
+				period += to.Format("02/01/2006")
+			}
+			fmt.Printf("**Period:** %s\n", period)
+			fmt.Println()
+		}
+
+		fmt.Println("| | Amount |")
+		fmt.Println("|---|---:|")
+		fmt.Printf("| Total Income | %.2f |\n", ab.TotalIncome)
+		fmt.Printf("| Total Expense | %.2f |\n", ab.TotalExpense)
+		fmt.Printf("| **Balance** | **%.2f** |\n", ab.Balance)
+		fmt.Println()
+	}
+}

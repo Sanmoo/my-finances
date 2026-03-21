@@ -14,12 +14,14 @@ type ReportInput struct {
 	To               *time.Time
 	FilterTags       []string
 	FilterCategories []string
+	AccountID        *int64
 }
 
 type ReportOutput struct {
-	Entries      []*EntryWithCategory
-	TotalIncome  float64
-	TotalExpense float64
+	Entries           []*EntryWithCategory
+	TotalIncome       float64
+	TotalExpense      float64
+	TotalInstallments map[int64]int
 }
 
 type EntryWithCategory struct {
@@ -30,6 +32,10 @@ type EntryWithCategory struct {
 	Description     string
 	CategoryID      *int64
 	CategoryName    string
+	CreditCardID    *int64
+	AccountID       int64
+	Installment     int
+	ParentEntryID   *int64
 	RealizationDate time.Time
 	PaymentDate     *time.Time
 	Tags            []string
@@ -49,8 +55,9 @@ func NewReport(entryRepo port.EntriesRepository, categoryRepo port.CategoriesRep
 
 func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 	filters := &port.EntryFilters{
-		FromDate: input.From,
-		ToDate:   input.To,
+		FromDate:  input.From,
+		ToDate:    input.To,
+		AccountID: input.AccountID,
 	}
 
 	if len(input.FilterTags) > 0 {
@@ -72,8 +79,11 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 		categoryMap[cat.ID] = cat
 	}
 
+	totalInstallments := uc.calculateTotalInstallments(entries)
+
 	output := &ReportOutput{
-		Entries: make([]*EntryWithCategory, 0),
+		Entries:           make([]*EntryWithCategory, 0),
+		TotalInstallments: totalInstallments,
 	}
 
 	for _, entry := range entries {
@@ -97,6 +107,10 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 			Currency:        entry.Currency,
 			Description:     entry.Description,
 			CategoryID:      entry.CategoryID,
+			CreditCardID:    entry.CreditCardID,
+			AccountID:       entry.AccountID,
+			Installment:     entry.Installment,
+			ParentEntryID:   entry.ParentEntryID,
 			RealizationDate: entry.RealizationDate,
 			PaymentDate:     entry.PaymentDate,
 			Tags:            entry.Tags,
@@ -118,6 +132,22 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 	}
 
 	return output, nil
+}
+
+func (uc *Report) calculateTotalInstallments(entries []*entity.Entry) map[int64]int {
+	result := make(map[int64]int)
+
+	for _, entry := range entries {
+		var groupID int64
+		if entry.ParentEntryID != nil {
+			groupID = *entry.ParentEntryID
+		} else {
+			groupID = entry.ID
+		}
+		result[groupID]++
+	}
+
+	return result
 }
 
 func (uc *Report) matchesCategoryFilter(cat *entity.Category, filter []string) bool {

@@ -28,6 +28,9 @@ type Entry struct {
 	Description     string
 	CategoryID      *int64
 	CreditCardID    *int64
+	AccountID       int64
+	Installment     int
+	ParentEntryID   *int64
 	RealizationDate time.Time
 	PaymentDate     *time.Time
 	CreatedAt       time.Time
@@ -89,6 +92,19 @@ func WithCreditCard(cc *CreditCard) EntryOption {
 func WithTags(tags []string) EntryOption {
 	return func(e *Entry) {
 		e.Tags = tags
+	}
+}
+
+func WithAccountID(accountID int64) EntryOption {
+	return func(e *Entry) {
+		e.AccountID = accountID
+	}
+}
+
+func WithInstallment(installment int, parentEntryID *int64) EntryOption {
+	return func(e *Entry) {
+		e.Installment = installment
+		e.ParentEntryID = parentEntryID
 	}
 }
 

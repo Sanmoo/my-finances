@@ -19,15 +19,18 @@ func NewEntriesRepository(db *DB) *EntriesRepository {
 }
 
 func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
-	query := `INSERT INTO entries (type, amount, currency, description, category_id, credit_card_id, realization_date, payment_date, created_at) 
-			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO entries (type, amount, currency, description, category_id, credit_card_id, account_id, installment, parent_entry_id, realization_date, payment_date, created_at) 
+			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	var categoryID, creditCardID interface{}
+	var categoryID, creditCardID, parentEntryID interface{}
 	if entry.CategoryID != nil {
 		categoryID = *entry.CategoryID
 	}
 	if entry.CreditCardID != nil {
 		creditCardID = *entry.CreditCardID
+	}
+	if entry.ParentEntryID != nil {
+		parentEntryID = *entry.ParentEntryID
 	}
 
 	var paymentDate interface{}
@@ -42,6 +45,9 @@ func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
 		entry.Description,
 		categoryID,
 		creditCardID,
+		entry.AccountID,
+		entry.Installment,
+		parentEntryID,
 		entry.RealizationDate.Format("2006-01-02"),
 		paymentDate,
 		entry.CreatedAt.Format("2006-01-02"),
@@ -65,12 +71,12 @@ func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
 }
 
 func (r *EntriesRepository) GetByID(id int64) (*entity.Entry, error) {
-	query := `SELECT id, type, amount, currency, description, category_id, credit_card_id, realization_date, payment_date, created_at 
+	query := `SELECT id, type, amount, currency, description, category_id, credit_card_id, account_id, installment, parent_entry_id, realization_date, payment_date, created_at 
 			  FROM entries WHERE id = ?`
 
 	var entry entity.Entry
 	var description sql.NullString
-	var categoryID, creditCardID sql.NullInt64
+	var categoryID, creditCardID, parentEntryID sql.NullInt64
 	var paymentDate sql.NullString
 	var realizationDate, createdAt string
 
@@ -82,6 +88,9 @@ func (r *EntriesRepository) GetByID(id int64) (*entity.Entry, error) {
 		&description,
 		&categoryID,
 		&creditCardID,
+		&entry.AccountID,
+		&entry.Installment,
+		&parentEntryID,
 		&realizationDate,
 		&paymentDate,
 		&createdAt,
@@ -101,6 +110,9 @@ func (r *EntriesRepository) GetByID(id int64) (*entity.Entry, error) {
 	}
 	if creditCardID.Valid {
 		entry.CreditCardID = &creditCardID.Int64
+	}
+	if parentEntryID.Valid {
+		entry.ParentEntryID = &parentEntryID.Int64
 	}
 	if realizationDate != "" {
 		entry.RealizationDate, _ = time.Parse("2006-01-02", realizationDate)
@@ -123,7 +135,7 @@ func (r *EntriesRepository) GetByID(id int64) (*entity.Entry, error) {
 }
 
 func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry, error) {
-	query := `SELECT id, type, amount, currency, description, category_id, credit_card_id, realization_date, payment_date, created_at 
+	query := `SELECT id, type, amount, currency, description, category_id, credit_card_id, account_id, installment, parent_entry_id, realization_date, payment_date, created_at 
 			  FROM entries WHERE 1=1`
 	var args []interface{}
 
@@ -144,6 +156,10 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 			query += " AND credit_card_id = ?"
 			args = append(args, *filters.CreditCardID)
 		}
+		if filters.AccountID != nil {
+			query += " AND account_id = ?"
+			args = append(args, *filters.AccountID)
+		}
 		if len(filters.CategoryIDs) > 0 {
 			placeholders := make([]string, len(filters.CategoryIDs))
 			for i, id := range filters.CategoryIDs {
@@ -154,7 +170,7 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 		}
 	}
 
-	query += " ORDER BY realization_date DESC, id DESC"
+	query += " ORDER BY payment_date ASC, realization_date ASC, id ASC"
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -166,7 +182,7 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 	for rows.Next() {
 		var entry entity.Entry
 		var description sql.NullString
-		var categoryID, creditCardID sql.NullInt64
+		var categoryID, creditCardID, parentEntryID sql.NullInt64
 		var paymentDate sql.NullString
 		var realizationDate, createdAt string
 
@@ -178,6 +194,9 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 			&description,
 			&categoryID,
 			&creditCardID,
+			&entry.AccountID,
+			&entry.Installment,
+			&parentEntryID,
 			&realizationDate,
 			&paymentDate,
 			&createdAt,
@@ -193,6 +212,9 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 		}
 		if creditCardID.Valid {
 			entry.CreditCardID = &creditCardID.Int64
+		}
+		if parentEntryID.Valid {
+			entry.ParentEntryID = &parentEntryID.Int64
 		}
 		if realizationDate != "" {
 			entry.RealizationDate, _ = time.Parse("2006-01-02", realizationDate)
@@ -238,14 +260,17 @@ func (r *EntriesRepository) filterByTags(entries []*entity.Entry, filterTags []s
 }
 
 func (r *EntriesRepository) Update(entry *entity.Entry) error {
-	query := `UPDATE entries SET type = ?, amount = ?, currency = ?, description = ?, category_id = ?, credit_card_id = ?, realization_date = ?, payment_date = ? WHERE id = ?`
+	query := `UPDATE entries SET type = ?, amount = ?, currency = ?, description = ?, category_id = ?, credit_card_id = ?, account_id = ?, installment = ?, parent_entry_id = ?, realization_date = ?, payment_date = ? WHERE id = ?`
 
-	var categoryID, creditCardID interface{}
+	var categoryID, creditCardID, parentEntryID interface{}
 	if entry.CategoryID != nil {
 		categoryID = *entry.CategoryID
 	}
 	if entry.CreditCardID != nil {
 		creditCardID = *entry.CreditCardID
+	}
+	if entry.ParentEntryID != nil {
+		parentEntryID = *entry.ParentEntryID
 	}
 
 	var paymentDate interface{}
@@ -260,6 +285,9 @@ func (r *EntriesRepository) Update(entry *entity.Entry) error {
 		entry.Description,
 		categoryID,
 		creditCardID,
+		entry.AccountID,
+		entry.Installment,
+		parentEntryID,
 		entry.RealizationDate.Format("2006-01-02"),
 		paymentDate,
 		entry.ID,

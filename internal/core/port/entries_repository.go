@@ -23,4 +23,5 @@ type EntryFilters struct {
 	CategoryIDs  []int64
 	Tags         []string
 	CreditCardID *int64
+	AccountID    *int64
 }

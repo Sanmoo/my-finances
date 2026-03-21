@@ -19,6 +19,7 @@ type AddEntryInput struct {
 	Tags        []string
 	Times       int
 	Date        time.Time
+	AccountID   int64
 }
 
 type AddEntryOutput struct {
@@ -54,6 +55,7 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 	}
 
 	entries := make([]*entity.Entry, 0, input.Times)
+	var parentID *int64
 
 	for i := 0; i < input.Times; i++ {
 		date := input.Date
@@ -61,7 +63,7 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 			date = date.AddDate(0, 1, 0)
 		}
 
-		entry, err := uc.createEntry(input, amount, date)
+		entry, err := uc.createEntry(input, amount, date, i+1, parentID)
 		if err != nil {
 			return nil, err
 		}
@@ -73,12 +75,16 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 
 		entry.ID = id
 		entries = append(entries, entry)
+
+		if parentID == nil {
+			parentID = &entry.ID
+		}
 	}
 
 	return &AddEntryOutput{Entries: entries}, nil
 }
 
-func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.Time) (*entity.Entry, error) {
+func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.Time, installment int, parentID *int64) (*entity.Entry, error) {
 	var opts []entity.EntryOption
 
 	if input.Description != "" {
@@ -95,6 +101,12 @@ func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.T
 
 	if len(input.Tags) > 0 {
 		opts = append(opts, entity.WithTags(input.Tags))
+	}
+
+	opts = append(opts, entity.WithAccountID(input.AccountID))
+
+	if installment > 0 || parentID != nil {
+		opts = append(opts, entity.WithInstallment(installment, parentID))
 	}
 
 	entry, err := entity.NewEntry(input.Type, amount, input.Currency, date, opts...)

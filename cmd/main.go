@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Sanmoo/my-finances/internal/core/port"
 	"github.com/Sanmoo/my-finances/internal/core/usecase"
 	"github.com/Sanmoo/my-finances/internal/domain/entity"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/cli"
@@ -145,7 +146,7 @@ var addCreditCardCmd = &cobra.Command{
 }
 
 var addExpenseCmd = &cobra.Command{
-	Use:   "expense [amount] [--tags x,y] [--date DD-MM-YY] [--category x] [--description x] [--credit-card x] [--times n]",
+	Use:   "expense [amount] --account <name> [--tags x,y] [--date DD-MM-YY] [--category x] [--description x] [--credit-card x] [--times n]",
 	Short: "Add a new expense",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -161,12 +162,29 @@ var addExpenseCmd = &cobra.Command{
 			amount = args[0]
 		}
 
+		accountStr, _ := cmd.Flags().GetString("account")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		dateStr, _ := cmd.Flags().GetString("date")
 		categoryStr, _ := cmd.Flags().GetString("category")
 		description, _ := cmd.Flags().GetString("description")
 		creditCardStr, _ := cmd.Flags().GetString("credit-card")
 		times, _ := cmd.Flags().GetInt("times")
+
+		if accountStr == "" {
+			printer.PrintError("--account is required")
+			return
+		}
+
+		accountRepo := sqlite.NewAccountsRepository(db)
+		account, err := accountRepo.GetByName(accountStr)
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+		if account == nil {
+			printer.PrintError("account not found: " + accountStr)
+			return
+		}
 
 		date := parseDate(dateStr)
 		currency := getDefaultCurrency()
@@ -213,6 +231,7 @@ var addExpenseCmd = &cobra.Command{
 			Tags:        tags,
 			Times:       times,
 			Date:        date,
+			AccountID:   account.ID,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
@@ -226,7 +245,7 @@ var addExpenseCmd = &cobra.Command{
 }
 
 var addIncomeCmd = &cobra.Command{
-	Use:   "income [amount] [--date x] [--category x] [--description x]",
+	Use:   "income [amount] --account <name> [--date x] [--category x] [--description x]",
 	Short: "Add a new income",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -242,9 +261,26 @@ var addIncomeCmd = &cobra.Command{
 			amount = args[0]
 		}
 
+		accountStr, _ := cmd.Flags().GetString("account")
 		dateStr, _ := cmd.Flags().GetString("date")
 		categoryStr, _ := cmd.Flags().GetString("category")
 		description, _ := cmd.Flags().GetString("description")
+
+		if accountStr == "" {
+			printer.PrintError("--account is required")
+			return
+		}
+
+		accountRepo := sqlite.NewAccountsRepository(db)
+		account, err := accountRepo.GetByName(accountStr)
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+		if account == nil {
+			printer.PrintError("account not found: " + accountStr)
+			return
+		}
 
 		date := parseDate(dateStr)
 		currency := getDefaultCurrency()
@@ -269,6 +305,7 @@ var addIncomeCmd = &cobra.Command{
 			Description: description,
 			CategoryID:  categoryID,
 			Date:        date,
+			AccountID:   account.ID,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
@@ -281,14 +318,216 @@ var addIncomeCmd = &cobra.Command{
 	},
 }
 
+var reportCmd = &cobra.Command{
+	Use:   "report",
+	Short: "Generate reports",
+}
+
+var reportEntriesCmd = &cobra.Command{
+	Use:   "entries [--from DD-MM-YY] [--until DD-MM-YY] [--filter-tags x,y] [--filter-categories x,y] [--account name] [--format table|md]",
+	Short: "List entries",
+	Run: func(cmd *cobra.Command, args []string) {
+		db, err := getDB()
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+		defer db.Close()
+
+		fromStr, _ := cmd.Flags().GetString("from")
+		untilStr, _ := cmd.Flags().GetString("until")
+		filterTagsStr, _ := cmd.Flags().GetString("filter-tags")
+		filterCategoriesStr, _ := cmd.Flags().GetString("filter-categories")
+		accountStr, _ := cmd.Flags().GetString("account")
+		format, _ := cmd.Flags().GetString("format")
+
+		var from, until *time.Time
+		if fromStr != "" {
+			t := parseDate(fromStr)
+			from = &t
+		}
+		if untilStr != "" {
+			t := parseDate(untilStr)
+			until = &t
+		}
+
+		filterTags := parseCommaSeparated(filterTagsStr)
+		filterCategories := parseCommaSeparated(filterCategoriesStr)
+
+		entryRepo := sqlite.NewEntriesRepository(db)
+		categoryRepo := sqlite.NewCategoriesRepository(db)
+		accountRepo := sqlite.NewAccountsRepository(db)
+
+		var accountID *int64
+		if accountStr != "" {
+			account, err := accountRepo.GetByName(accountStr)
+			if err != nil {
+				printer.PrintError(err.Error())
+				return
+			}
+			if account == nil {
+				printer.PrintError("account not found: " + accountStr)
+				return
+			}
+			accountID = &account.ID
+		}
+
+		report := usecase.NewReport(entryRepo, categoryRepo)
+
+		result, err := report.Execute(usecase.ReportInput{
+			Format:           format,
+			From:             from,
+			To:               until,
+			FilterTags:       filterTags,
+			FilterCategories: filterCategories,
+			AccountID:        accountID,
+		})
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+
+		categories, err := categoryRepo.GetAll()
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+
+		categoryMap := make(map[int64]*entity.Category)
+		for _, cat := range categories {
+			categoryMap[cat.ID] = cat
+		}
+
+		entries := make([]*entity.Entry, 0)
+		for _, e := range result.Entries {
+			entry := &entity.Entry{
+				ID:              e.EntryID,
+				Type:            entity.EntryType(e.Type),
+				Amount:          e.Amount,
+				Currency:        e.Currency,
+				Description:     e.Description,
+				CategoryID:      e.CategoryID,
+				CreditCardID:    e.CreditCardID,
+				AccountID:       e.AccountID,
+				Installment:     e.Installment,
+				ParentEntryID:   e.ParentEntryID,
+				RealizationDate: e.RealizationDate,
+				PaymentDate:     e.PaymentDate,
+				Tags:            e.Tags,
+			}
+			entries = append(entries, entry)
+		}
+
+		if format == "md" {
+			printer.PrintEntriesMarkdown(entries, categoryMap, result.TotalInstallments)
+		} else {
+			printer.PrintEntriesTable(entries, categoryMap, result.TotalInstallments)
+		}
+	},
+}
+
+var reportBalancesCmd = &cobra.Command{
+	Use:   "balances [--account name] [--from DD-MM-YY] [--until DD-MM-YY] [--format table|md]",
+	Short: "Show account balances",
+	Run: func(cmd *cobra.Command, args []string) {
+		db, err := getDB()
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+		defer db.Close()
+
+		fromStr, _ := cmd.Flags().GetString("from")
+		untilStr, _ := cmd.Flags().GetString("until")
+		accountStr, _ := cmd.Flags().GetString("account")
+		format, _ := cmd.Flags().GetString("format")
+
+		var from, until *time.Time
+		if fromStr != "" {
+			t := parseDate(fromStr)
+			from = &t
+		}
+		if untilStr != "" {
+			t := parseDate(untilStr)
+			until = &t
+		}
+
+		entryRepo := sqlite.NewEntriesRepository(db)
+		accountRepo := sqlite.NewAccountsRepository(db)
+
+		var accounts []*entity.Account
+		if accountStr != "" {
+			account, err := accountRepo.GetByName(accountStr)
+			if err != nil {
+				printer.PrintError(err.Error())
+				return
+			}
+			if account == nil {
+				printer.PrintError("account not found: " + accountStr)
+				return
+			}
+			accounts = []*entity.Account{account}
+		} else {
+			accounts, err = accountRepo.GetAll()
+			if err != nil {
+				printer.PrintError(err.Error())
+				return
+			}
+		}
+
+		accountBalances := make(map[int64]*cli.AccountBalance)
+
+		for _, acc := range accounts {
+			var accountID *int64
+			accountID = &acc.ID
+
+			entries, err := entryRepo.GetAll(&port.EntryFilters{
+				FromDate:  from,
+				ToDate:    until,
+				AccountID: accountID,
+			})
+			if err != nil {
+				printer.PrintError(err.Error())
+				return
+			}
+
+			var totalIncome, totalExpense float64
+			for _, entry := range entries {
+				if entry.IsIncome() {
+					totalIncome += entry.Amount
+				} else {
+					totalExpense += entry.Amount
+				}
+			}
+
+			accountBalances[acc.ID] = &cli.AccountBalance{
+				Account:      acc,
+				TotalIncome:  totalIncome,
+				TotalExpense: totalExpense,
+				Balance:      totalIncome - totalExpense,
+			}
+		}
+
+		if format == "md" {
+			printer.PrintBalancesMarkdown(accounts, accountBalances, from, until)
+		} else {
+			printer.PrintBalancesTable(accounts, accountBalances, from, until)
+		}
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(addCmd)
+	rootCmd.AddCommand(reportCmd)
 
 	addCmd.AddCommand(addAccountCmd)
 	addCmd.AddCommand(addCategoryCmd)
 	addCmd.AddCommand(addCreditCardCmd)
 	addCmd.AddCommand(addExpenseCmd)
 	addCmd.AddCommand(addIncomeCmd)
+
+	reportCmd.AddCommand(reportEntriesCmd)
+	reportCmd.AddCommand(reportBalancesCmd)
 
 	rootCmd.PersistentFlags().StringVar(&dbFlag, "db", "", "database name (default or custom)")
 
@@ -300,6 +539,7 @@ func init() {
 	addCreditCardCmd.Flags().Int("closing-day", 0, "closing day (1-31)")
 	addCreditCardCmd.Flags().Int("due-day", 0, "due day (1-31)")
 
+	addExpenseCmd.Flags().String("account", "", "account name (required)")
 	addExpenseCmd.Flags().StringSlice("tags", []string{}, "tags (comma-separated)")
 	addExpenseCmd.Flags().String("date", "", "date (DD-MM-YY)")
 	addExpenseCmd.Flags().String("category", "", "category name or alias")
@@ -307,9 +547,22 @@ func init() {
 	addExpenseCmd.Flags().String("credit-card", "", "credit card name")
 	addExpenseCmd.Flags().Int("times", 0, "number of installments")
 
+	addIncomeCmd.Flags().String("account", "", "account name (required)")
 	addIncomeCmd.Flags().String("date", "", "date (DD-MM-YY)")
 	addIncomeCmd.Flags().String("category", "", "category name or alias")
 	addIncomeCmd.Flags().String("description", "", "description")
+
+	reportEntriesCmd.Flags().String("from", "", "start date (DD-MM-YY)")
+	reportEntriesCmd.Flags().String("until", "", "end date (DD-MM-YY)")
+	reportEntriesCmd.Flags().String("filter-tags", "", "filter by tags (comma-separated)")
+	reportEntriesCmd.Flags().String("filter-categories", "", "filter by categories (comma-separated)")
+	reportEntriesCmd.Flags().String("account", "", "account name")
+	reportEntriesCmd.Flags().String("format", "table", "output format (table or md)")
+
+	reportBalancesCmd.Flags().String("from", "", "start date (DD-MM-YY)")
+	reportBalancesCmd.Flags().String("until", "", "end date (DD-MM-YY)")
+	reportBalancesCmd.Flags().String("account", "", "account name")
+	reportBalancesCmd.Flags().String("format", "table", "output format (table or md)")
 }
 
 func getDBManager() *database.Manager {
@@ -350,6 +603,21 @@ func parseDate(dateStr string) time.Time {
 	}
 
 	return time.Now().UTC()
+}
+
+func parseCommaSeparated(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 func init() {

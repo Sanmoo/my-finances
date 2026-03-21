@@ -70,6 +70,22 @@ func (r *AccountsRepository) GetAll() ([]*entity.Account, error) {
 	return accounts, nil
 }
 
+func (r *AccountsRepository) GetByName(name string) (*entity.Account, error) {
+	query := `SELECT id, name FROM accounts WHERE name = ?`
+
+	var acc entity.Account
+
+	err := r.db.QueryRow(query, name).Scan(&acc.ID, &acc.Name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get account by name: %w", err)
+	}
+
+	return &acc, nil
+}
+
 func (r *AccountsRepository) Update(acc *entity.Account) error {
 	query := `UPDATE accounts SET name = ? WHERE id = ?`
 

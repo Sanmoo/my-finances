@@ -351,3 +351,78 @@ func (r *EntriesRepository) getTagsByEntryID(entryID int64) ([]string, error) {
 
 	return tags, nil
 }
+
+func (r *EntriesRepository) GetAllByYear(accountID int64, year int) ([]*entity.Entry, error) {
+	startDate := fmt.Sprintf("%d-01-01", year)
+	endDate := fmt.Sprintf("%d-01-01", year+1)
+
+	query := `SELECT id, type, amount, currency, description, category_id, credit_card_id, account_id, installment, parent_entry_id, realization_date, payment_date, created_at 
+			  FROM entries WHERE account_id = ? AND realization_date >= ? AND realization_date < ?
+			  ORDER BY payment_date ASC, realization_date ASC, id ASC`
+
+	rows, err := r.db.Query(query, accountID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get entries by year: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []*entity.Entry
+	for rows.Next() {
+		var entry entity.Entry
+		var description sql.NullString
+		var categoryID, creditCardID, parentEntryID sql.NullInt64
+		var paymentDate sql.NullString
+		var realizationDate, createdAt string
+
+		if err := rows.Scan(
+			&entry.ID,
+			&entry.Type,
+			&entry.Amount,
+			&entry.Currency,
+			&description,
+			&categoryID,
+			&creditCardID,
+			&entry.AccountID,
+			&entry.Installment,
+			&parentEntryID,
+			&realizationDate,
+			&paymentDate,
+			&createdAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan entry: %w", err)
+		}
+
+		if description.Valid {
+			entry.Description = description.String
+		}
+		if categoryID.Valid {
+			entry.CategoryID = &categoryID.Int64
+		}
+		if creditCardID.Valid {
+			entry.CreditCardID = &creditCardID.Int64
+		}
+		if parentEntryID.Valid {
+			entry.ParentEntryID = &parentEntryID.Int64
+		}
+		if realizationDate != "" {
+			entry.RealizationDate, _ = time.Parse("2006-01-02", realizationDate)
+		}
+		if paymentDate.Valid {
+			t, _ := time.Parse("2006-01-02", paymentDate.String)
+			entry.PaymentDate = &t
+		}
+		if createdAt != "" {
+			entry.CreatedAt, _ = time.Parse("2006-01-02", createdAt)
+		}
+
+		tags, err := r.getTagsByEntryID(entry.ID)
+		if err != nil {
+			return nil, err
+		}
+		entry.Tags = tags
+
+		entries = append(entries, &entry)
+	}
+
+	return entries, nil
+}

@@ -10,6 +10,7 @@ type EntriesRepository interface {
 	Create(entry *entity.Entry) (int64, error)
 	GetByID(id int64) (*entity.Entry, error)
 	GetAll(filters *EntryFilters) ([]*entity.Entry, error)
+	GetAllByYear(accountID int64, year int) ([]*entity.Entry, error)
 	Update(entry *entity.Entry) error
 	Delete(id int64) error
 	AddTag(entryID int64, tag string) error

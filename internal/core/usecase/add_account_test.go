@@ -25,6 +25,14 @@ func (m *MockAccountsRepository) GetByID(id int64) (*entity.Account, error) {
 	return args.Get(0).(*entity.Account), args.Error(1)
 }
 
+func (m *MockAccountsRepository) GetByName(name string) (*entity.Account, error) {
+	args := m.Called(name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.Account), args.Error(1)
+}
+
 func (m *MockAccountsRepository) GetAll() ([]*entity.Account, error) {
 	args := m.Called()
 	return args.Get(0).([]*entity.Account), args.Error(1)

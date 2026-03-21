@@ -19,10 +19,11 @@ import (
 )
 
 var (
-	dbFlag    string
-	printer   = cli.NewPrinter()
-	cfgLoader = config.NewLoader()
-	dbManager *database.Manager
+	dbFlag      string
+	printer     = cli.NewPrinter()
+	cfgLoader   = config.NewLoader()
+	dbManager   *database.Manager
+	repoFactory *persistence.RepositoryFactory
 )
 
 func main() {
@@ -47,14 +48,13 @@ var addAccountCmd = &cobra.Command{
 	Short: "Add a new account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := getDB()
+		factory, err := getFactory()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
 		}
-		defer db.Close()
 
-		repo := sqlite.NewAccountsRepository(db)
+		repo := factory.NewAccountsRepository()
 		uc := usecase.NewAddAccount(repo)
 
 		result, err := uc.Execute(usecase.AddAccountInput{
@@ -73,12 +73,11 @@ var addCategoryCmd = &cobra.Command{
 	Use:   "category --type <inc|exp> --name <name> [--alias <alias>] [--emoji <emoji>]",
 	Short: "Add a new category",
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := getDB()
+		factory, err := getFactory()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
 		}
-		defer db.Close()
 
 		catType, _ := cmd.Flags().GetString("type")
 		name, _ := cmd.Flags().GetString("name")
@@ -90,7 +89,7 @@ var addCategoryCmd = &cobra.Command{
 			return
 		}
 
-		repo := sqlite.NewCategoriesRepository(db)
+		repo := factory.NewCategoriesRepository()
 		uc := usecase.NewAddCategory(repo)
 
 		result, err := uc.Execute(usecase.AddCategoryInput{
@@ -113,12 +112,11 @@ var addCreditCardCmd = &cobra.Command{
 	Short: "Add a new credit card",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := getDB()
+		factory, err := getFactory()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
 		}
-		defer db.Close()
 
 		closingDay, _ := cmd.Flags().GetInt("closing-day")
 		dueDay, _ := cmd.Flags().GetInt("due-day")
@@ -128,7 +126,7 @@ var addCreditCardCmd = &cobra.Command{
 			return
 		}
 
-		repo := sqlite.NewCreditCardsRepository(db)
+		repo := factory.NewCreditCardsRepository()
 		uc := usecase.NewAddCreditCard(repo)
 
 		result, err := uc.Execute(usecase.AddCreditCardInput{
@@ -150,12 +148,11 @@ var addExpenseCmd = &cobra.Command{
 	Short: "Add a new expense",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := getDB()
+		factory, err := getFactory()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
 		}
-		defer db.Close()
 
 		amount := "0"
 		if len(args) > 0 {
@@ -175,7 +172,7 @@ var addExpenseCmd = &cobra.Command{
 			return
 		}
 
-		accountRepo := sqlite.NewAccountsRepository(db)
+		accountRepo := factory.NewAccountsRepository()
 		account, err := accountRepo.GetByName(accountStr)
 		if err != nil {
 			printer.PrintError(err.Error())
@@ -189,9 +186,9 @@ var addExpenseCmd = &cobra.Command{
 		date := parseDate(dateStr)
 		currency := getDefaultCurrency()
 
-		entryRepo := sqlite.NewEntriesRepository(db)
-		categoryRepo := sqlite.NewCategoriesRepository(db)
-		ccRepo := sqlite.NewCreditCardsRepository(db)
+		entryRepo := factory.NewEntriesRepository()
+		categoryRepo := factory.NewCategoriesRepository()
+		ccRepo := factory.NewCreditCardsRepository()
 		uc := usecase.NewAddEntry(entryRepo, categoryRepo, ccRepo)
 
 		var categoryID *int64
@@ -249,12 +246,11 @@ var addIncomeCmd = &cobra.Command{
 	Short: "Add a new income",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := getDB()
+		factory, err := getFactory()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
 		}
-		defer db.Close()
 
 		amount := "0"
 		if len(args) > 0 {
@@ -271,7 +267,7 @@ var addIncomeCmd = &cobra.Command{
 			return
 		}
 
-		accountRepo := sqlite.NewAccountsRepository(db)
+		accountRepo := factory.NewAccountsRepository()
 		account, err := accountRepo.GetByName(accountStr)
 		if err != nil {
 			printer.PrintError(err.Error())
@@ -285,9 +281,9 @@ var addIncomeCmd = &cobra.Command{
 		date := parseDate(dateStr)
 		currency := getDefaultCurrency()
 
-		entryRepo := sqlite.NewEntriesRepository(db)
-		categoryRepo := sqlite.NewCategoriesRepository(db)
-		ccRepo := sqlite.NewCreditCardsRepository(db)
+		entryRepo := factory.NewEntriesRepository()
+		categoryRepo := factory.NewCategoriesRepository()
+		ccRepo := factory.NewCreditCardsRepository()
 		uc := usecase.NewAddEntry(entryRepo, categoryRepo, ccRepo)
 
 		var categoryID *int64
@@ -327,12 +323,11 @@ var reportEntriesCmd = &cobra.Command{
 	Use:   "entries [--from DD-MM-YY] [--until DD-MM-YY] [--filter-tags x,y] [--filter-categories x,y] [--account name] [--format table|md]",
 	Short: "List entries",
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := getDB()
+		factory, err := getFactory()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
 		}
-		defer db.Close()
 
 		fromStr, _ := cmd.Flags().GetString("from")
 		untilStr, _ := cmd.Flags().GetString("until")
@@ -354,9 +349,9 @@ var reportEntriesCmd = &cobra.Command{
 		filterTags := parseCommaSeparated(filterTagsStr)
 		filterCategories := parseCommaSeparated(filterCategoriesStr)
 
-		entryRepo := sqlite.NewEntriesRepository(db)
-		categoryRepo := sqlite.NewCategoriesRepository(db)
-		accountRepo := sqlite.NewAccountsRepository(db)
+		entryRepo := factory.NewEntriesRepository()
+		categoryRepo := factory.NewCategoriesRepository()
+		accountRepo := factory.NewAccountsRepository()
 
 		var accountID *int64
 		if accountStr != "" {
@@ -430,12 +425,11 @@ var reportBalancesCmd = &cobra.Command{
 	Use:   "balances [--account name] [--from DD-MM-YY] [--until DD-MM-YY] [--format table|md]",
 	Short: "Show account balances",
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := getDB()
+		factory, err := getFactory()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
 		}
-		defer db.Close()
 
 		fromStr, _ := cmd.Flags().GetString("from")
 		untilStr, _ := cmd.Flags().GetString("until")
@@ -452,8 +446,8 @@ var reportBalancesCmd = &cobra.Command{
 			until = &t
 		}
 
-		entryRepo := sqlite.NewEntriesRepository(db)
-		accountRepo := sqlite.NewAccountsRepository(db)
+		entryRepo := factory.NewEntriesRepository()
+		accountRepo := factory.NewAccountsRepository()
 
 		var accounts []*entity.Account
 		if accountStr != "" {
@@ -575,6 +569,29 @@ func getDBManager() *database.Manager {
 func getDB() (*sqlite.DB, error) {
 	mgr := getDBManager()
 	return mgr.GetDatabase(dbFlag)
+}
+
+func getFactory() (*persistence.RepositoryFactory, error) {
+	if repoFactory != nil {
+		return repoFactory, nil
+	}
+
+	cfg, err := cfgLoader.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg.StorageDriver == config.DriverSQLite {
+		db, err := getDB()
+		if err != nil {
+			return nil, err
+		}
+		repoFactory = persistence.NewRepositoryFactory(cfg, db.DB)
+	} else {
+		repoFactory = persistence.NewRepositoryFactory(cfg, nil)
+	}
+
+	return repoFactory, nil
 }
 
 func getDefaultCurrency() string {

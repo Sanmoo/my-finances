@@ -46,6 +46,28 @@ func (p *Printer) PrintEntry(entry *entity.Entry) {
 	}
 }
 
+func (p *Printer) PrintEntryWithCategory(entry *entity.Entry, category *entity.Category) {
+	fmt.Printf("Entry created (ID: %d)\n", entry.ID)
+	fmt.Printf("  Type: %s, Amount: %.2f %s\n", entry.Type, entry.Amount, entry.Currency)
+	fmt.Printf("  Date: %s\n", entry.RealizationDate.Format("02-01-2006"))
+	if entry.PaymentDate != nil {
+		fmt.Printf("  Payment Date: %s\n", entry.PaymentDate.Format("02-01-2006"))
+	}
+	if category != nil {
+		emoji := ""
+		if category.Emoji != nil {
+			emoji = *category.Emoji + " "
+		}
+		fmt.Printf("  Category: %s%s\n", emoji, category.Name)
+	}
+	if entry.Description != "" {
+		fmt.Printf("  Description: %s\n", entry.Description)
+	}
+	if len(entry.Tags) > 0 {
+		fmt.Printf("  Tags: %s\n", strings.Join(entry.Tags, ", "))
+	}
+}
+
 func (p *Printer) PrintEntryMarkdown(entry *entity.Entry, category *entity.Category) {
 	emoji := ""
 	if category != nil && category.Emoji != nil {

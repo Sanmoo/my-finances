@@ -24,7 +24,8 @@ type AddEntryInput struct {
 }
 
 type AddEntryOutput struct {
-	Entries []*entity.Entry
+	Entries  []*entity.Entry
+	Category *entity.Category
 }
 
 type AddEntry struct {
@@ -56,6 +57,7 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 	}
 
 	var categoryID *int64
+	var category *entity.Category
 	if input.CategoryNameOrAlias != "" {
 		cat, err := uc.categoryRepo.GetByNameOrAlias(input.CategoryNameOrAlias)
 		if err != nil {
@@ -65,6 +67,7 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 			return nil, entity.ErrCategoryNotFound
 		}
 		categoryID = &cat.ID
+		category = cat
 	}
 
 	entries := make([]*entity.Entry, 0, input.Times)
@@ -94,7 +97,7 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 		}
 	}
 
-	return &AddEntryOutput{Entries: entries}, nil
+	return &AddEntryOutput{Entries: entries, Category: category}, nil
 }
 
 func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.Time, installment int, parentID *int64, categoryID *int64) (*entity.Entry, error) {

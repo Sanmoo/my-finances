@@ -228,7 +228,7 @@ var addExpenseCmd = &cobra.Command{
 		}
 
 		for _, entry := range result.Entries {
-			printer.PrintEntry(entry)
+			printer.PrintEntryWithCategory(entry, result.Category)
 		}
 	},
 }
@@ -298,7 +298,7 @@ var addIncomeCmd = &cobra.Command{
 		}
 
 		for _, entry := range result.Entries {
-			printer.PrintEntry(entry)
+			printer.PrintEntryWithCategory(entry, result.Category)
 		}
 	},
 }

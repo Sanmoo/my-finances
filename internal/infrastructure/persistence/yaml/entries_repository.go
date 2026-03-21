@@ -24,11 +24,12 @@ func NewEntriesRepository(basePath string) *EntriesRepository {
 }
 
 func (r *EntriesRepository) filePath(accountName string, year int, month time.Month) string {
-	return filepath.Join(r.basePath, fmt.Sprintf("%d-%02d-%s-entries.yaml", year, month, accountName))
+	return filepath.Join(r.basePath, accountName, fmt.Sprintf("%d", year),
+		fmt.Sprintf("%d-%02d-%s-entries.yaml", year, month, accountName))
 }
 
-func (r *EntriesRepository) metaPath() string {
-	return filepath.Join(r.basePath, "_meta.yaml")
+func (r *EntriesRepository) metaPath(accountName string) string {
+	return filepath.Join(r.basePath, accountName, "_meta.yaml")
 }
 
 func (r *EntriesRepository) getEntryFilePath(entry *entity.Entry, accounts []Account) (string, error) {
@@ -64,11 +65,11 @@ func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
 
 	path := r.filePath(accountName, entry.RealizationDate.Year(), entry.RealizationDate.Month())
 
-	if err := EnsureMetaFile(r.metaPath()); err != nil {
+	if err := EnsureMetaFile(r.metaPath(accountName)); err != nil {
 		return 0, err
 	}
 
-	nextID, err := GetNextID(r.metaPath(), "entries")
+	nextID, err := GetNextID(r.metaPath(accountName), "entries")
 	if err != nil {
 		return 0, err
 	}
@@ -130,6 +131,10 @@ func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
 		}
 		return pd1.Before(*pd2)
 	})
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return 0, fmt.Errorf("failed to create directory: %w", err)
+	}
 
 	if err := Write(path, data); err != nil {
 		return 0, err

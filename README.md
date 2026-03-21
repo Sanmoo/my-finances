@@ -102,47 +102,15 @@ Se não especificado, usa o `default.db_path` da configuração.
 
 ## Referência de Comandos
 
-### `myfin add`
+Use `myfin add --help` e `myfin add <comando> --help` para ver todas as flags disponíveis.
 
 | Comando | Descrição |
 |---------|-----------|
 | `myfin add account <nome>` | Cria uma conta bancária |
-| `myfin add category [flags]` | Cria uma categoria |
-| `myfin add credit-card <nome> [flags]` | Cria um cartão de crédito |
+| `myfin add category` | Cria uma categoria |
+| `myfin add credit-card <nome>` | Cria um cartão de crédito |
 | `myfin add expense [valor]` | Adiciona uma despesa |
 | `myfin add income [valor]` | Adiciona uma receita |
-
-### Flags do `add category`
-
-| Flag | Descrição |
-|------|-----------|
-| `-t, --type <inc\|exp>` | Tipo da categoria (income ou expense) |
-| `-n, --name <nome>` | Nome da categoria |
-| `--alias <alias>` | Apelido alternativo |
-| `--emoji <emoji>` | Emoji para exibição |
-
-### Flags do `add credit-card`
-
-| Flag | Descrição |
-|------|-----------|
-| `--closing-day <n>` | Dia do fechamento da fatura (1-31) |
-| `--due-day <n>` | Dia do vencimento (1-31) |
-
-### Flags do `add expense` e `add income`
-
-| Flag | Descrição |
-|------|-----------|
-| `--date <DD-MM-YY>` | Data de realização |
-| `--category <nome>` | Nome ou alias da categoria |
-| `--description <texto>` | Descrição da transação |
-| `--tags <x,y,z>` | Tags separadas por vírgula |
-
-### Flags específicas do `add expense`
-
-| Flag | Descrição |
-|------|-----------|
-| `--credit-card <nome>` | Cartão de crédito (requer `--times`) |
-| `--times <n>` | Número de parcelas |
 
 ## Expressões Matemáticas
 

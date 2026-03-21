@@ -66,6 +66,7 @@ type Meta struct {
 		Categories  int64 `yaml:"categories"`
 		CreditCards int64 `yaml:"credit_cards"`
 		Entries     int64 `yaml:"entries"`
+		Tags        int64 `yaml:"tags"`
 	} `yaml:"next_ids"`
 }
 
@@ -192,6 +193,11 @@ func GetNextID(metaPath string, entity string) (int64, error) {
 		}
 	}
 
+	// Initialize Tags counter if not present (backward compatibility)
+	if meta.NextIDs.Tags == 0 {
+		meta.NextIDs.Tags = 1
+	}
+
 	var nextID int64
 	switch entity {
 	case "accounts":
@@ -206,6 +212,9 @@ func GetNextID(metaPath string, entity string) (int64, error) {
 	case "entries":
 		nextID = meta.NextIDs.Entries
 		meta.NextIDs.Entries++
+	case "tags":
+		nextID = meta.NextIDs.Tags
+		meta.NextIDs.Tags++
 	default:
 		return 0, fmt.Errorf("unknown entity: %s", entity)
 	}
@@ -236,6 +245,7 @@ func EnsureMetaFile(metaPath string) error {
 		meta.NextIDs.Categories = 1
 		meta.NextIDs.CreditCards = 1
 		meta.NextIDs.Entries = 1
+		meta.NextIDs.Tags = 1
 
 		content, err := yaml.Marshal(meta)
 		if err != nil {

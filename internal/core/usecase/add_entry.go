@@ -11,16 +11,16 @@ import (
 )
 
 type AddEntryInput struct {
-	Type        entity.EntryType
-	Amount      string
-	Currency    string
-	Description string
-	CategoryID  *int64
-	CreditCard  *entity.CreditCard
-	Tags        []string
-	Times       int
-	Date        time.Time
-	AccountID   int64
+	Type                entity.EntryType
+	Amount              string
+	Currency            string
+	Description         string
+	CategoryNameOrAlias string
+	CreditCard          *entity.CreditCard
+	Tags                []string
+	Times               int
+	Date                time.Time
+	AccountID           int64
 }
 
 type AddEntryOutput struct {
@@ -55,6 +55,18 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 		input.Times = 1
 	}
 
+	var categoryID *int64
+	if input.CategoryNameOrAlias != "" {
+		cat, err := uc.categoryRepo.GetByNameOrAlias(input.CategoryNameOrAlias)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find category: %w", err)
+		}
+		if cat == nil {
+			return nil, entity.ErrCategoryNotFound
+		}
+		categoryID = &cat.ID
+	}
+
 	entries := make([]*entity.Entry, 0, input.Times)
 	var parentID *int64
 
@@ -64,7 +76,7 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 			date = date.AddDate(0, 1, 0)
 		}
 
-		entry, err := uc.createEntry(input, amount, date, i+1, parentID)
+		entry, err := uc.createEntry(input, amount, date, i+1, parentID, categoryID)
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +97,7 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 	return &AddEntryOutput{Entries: entries}, nil
 }
 
-func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.Time, installment int, parentID *int64) (*entity.Entry, error) {
+func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.Time, installment int, parentID *int64, categoryID *int64) (*entity.Entry, error) {
 	var opts []entity.EntryOption
 
 	description := strings.TrimSpace(input.Description)
@@ -94,8 +106,8 @@ func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.T
 	}
 	opts = append(opts, entity.WithDescription(description))
 
-	if input.CategoryID != nil {
-		opts = append(opts, entity.WithCategoryID(*input.CategoryID))
+	if categoryID != nil {
+		opts = append(opts, entity.WithCategoryID(*categoryID))
 	}
 
 	if input.CreditCard != nil {

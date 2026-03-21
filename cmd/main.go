@@ -191,14 +191,6 @@ var addExpenseCmd = &cobra.Command{
 		ccRepo := factory.NewCreditCardsRepository()
 		uc := usecase.NewAddEntry(entryRepo, categoryRepo, ccRepo)
 
-		var categoryID *int64
-		if categoryStr != "" {
-			cat, _ := categoryRepo.GetByNameOrAlias(categoryStr)
-			if cat != nil {
-				categoryID = &cat.ID
-			}
-		}
-
 		var cc *entity.CreditCard
 		if creditCardStr != "" {
 			ccs, _ := ccRepo.GetAll()
@@ -219,16 +211,16 @@ var addExpenseCmd = &cobra.Command{
 		}
 
 		result, err := uc.Execute(usecase.AddEntryInput{
-			Type:        entity.EntryTypeExpense,
-			Amount:      amount,
-			Currency:    currency,
-			Description: description,
-			CategoryID:  categoryID,
-			CreditCard:  cc,
-			Tags:        tags,
-			Times:       times,
-			Date:        date,
-			AccountID:   account.ID,
+			Type:                entity.EntryTypeExpense,
+			Amount:              amount,
+			Currency:            currency,
+			Description:         description,
+			CategoryNameOrAlias: categoryStr,
+			CreditCard:          cc,
+			Tags:                tags,
+			Times:               times,
+			Date:                date,
+			AccountID:           account.ID,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
@@ -291,22 +283,14 @@ var addIncomeCmd = &cobra.Command{
 		ccRepo := factory.NewCreditCardsRepository()
 		uc := usecase.NewAddEntry(entryRepo, categoryRepo, ccRepo)
 
-		var categoryID *int64
-		if categoryStr != "" {
-			cat, _ := categoryRepo.GetByNameOrAlias(categoryStr)
-			if cat != nil {
-				categoryID = &cat.ID
-			}
-		}
-
 		result, err := uc.Execute(usecase.AddEntryInput{
-			Type:        entity.EntryTypeIncome,
-			Amount:      amount,
-			Currency:    currency,
-			Description: description,
-			CategoryID:  categoryID,
-			Date:        date,
-			AccountID:   account.ID,
+			Type:                entity.EntryTypeIncome,
+			Amount:              amount,
+			Currency:            currency,
+			Description:         description,
+			CategoryNameOrAlias: categoryStr,
+			Date:                date,
+			AccountID:           account.ID,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())

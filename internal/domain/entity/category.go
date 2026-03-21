@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrInvalidCategoryType = errors.New("category type must be 'inc' or 'exp'")
 	ErrEmptyCategoryName   = errors.New("category name cannot be empty")
+	ErrCategoryNotFound    = errors.New("category not found")
 )
 
 type CategoryType string

@@ -68,10 +68,11 @@ func TestAddEntry_Execute(t *testing.T) {
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{
-			Type:     entity.EntryTypeExpense,
-			Amount:   "50.00",
-			Currency: "BRL",
-			Date:     date,
+			Type:        entity.EntryTypeExpense,
+			Amount:      "50.00",
+			Currency:    "BRL",
+			Description: "Test expense",
+			Date:        date,
 		})
 
 		assert.NoError(t, err)
@@ -93,10 +94,11 @@ func TestAddEntry_Execute(t *testing.T) {
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{
-			Type:     entity.EntryTypeIncome,
-			Amount:   "1000/2",
-			Currency: "BRL",
-			Date:     date,
+			Type:        entity.EntryTypeIncome,
+			Amount:      "1000/2",
+			Currency:    "BRL",
+			Description: "Test income",
+			Date:        date,
 		})
 
 		assert.NoError(t, err)
@@ -116,11 +118,12 @@ func TestAddEntry_Execute(t *testing.T) {
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{
-			Type:     entity.EntryTypeExpense,
-			Amount:   "100",
-			Currency: "BRL",
-			Date:     date,
-			Times:    2,
+			Type:        entity.EntryTypeExpense,
+			Amount:      "100",
+			Currency:    "BRL",
+			Description: "Test installments",
+			Date:        date,
+			Times:       2,
 		})
 
 		assert.NoError(t, err)
@@ -138,10 +141,11 @@ func TestAddEntry_Execute(t *testing.T) {
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{
-			Type:     entity.EntryTypeExpense,
-			Amount:   "invalid",
-			Currency: "BRL",
-			Date:     date,
+			Type:        entity.EntryTypeExpense,
+			Amount:      "invalid",
+			Currency:    "BRL",
+			Description: "Test invalid",
+			Date:        date,
 		})
 
 		assert.Error(t, err)

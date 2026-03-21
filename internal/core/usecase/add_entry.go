@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Sanmoo/my-finances/internal/core/port"
@@ -87,9 +88,11 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.Time, installment int, parentID *int64) (*entity.Entry, error) {
 	var opts []entity.EntryOption
 
-	if input.Description != "" {
-		opts = append(opts, entity.WithDescription(input.Description))
+	description := strings.TrimSpace(input.Description)
+	if description == "" {
+		return nil, entity.ErrEmptyDescription
 	}
+	opts = append(opts, entity.WithDescription(description))
 
 	if input.CategoryID != nil {
 		opts = append(opts, entity.WithCategoryID(*input.CategoryID))

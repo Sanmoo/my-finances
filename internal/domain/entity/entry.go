@@ -11,6 +11,7 @@ var (
 	ErrInvalidAmount    = errors.New("amount must be greater than 0")
 	ErrInvalidDate      = errors.New("date cannot be empty")
 	ErrEmptyCurrency    = errors.New("currency cannot be empty")
+	ErrEmptyDescription = errors.New("description cannot be empty")
 )
 
 type EntryType string

@@ -144,7 +144,7 @@ var addCreditCardCmd = &cobra.Command{
 }
 
 var addExpenseCmd = &cobra.Command{
-	Use:   "expense [amount] --account <name> [--tags x,y] [--date DD-MM-YY] [--category x] [--description x] [--credit-card x] [--times n]",
+	Use:   "expense [amount] --account <name> [--tags x,y] --date <YYYY-MM-DD> [--category x] --description <text> [--credit-card x] [--times n]",
 	Short: "Add a new expense",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -163,6 +163,11 @@ var addExpenseCmd = &cobra.Command{
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		dateStr, _ := cmd.Flags().GetString("date")
 		categoryStr, _ := cmd.Flags().GetString("category")
+
+		if dateStr == "" {
+			printer.PrintError("--date is required")
+			return
+		}
 		description, _ := cmd.Flags().GetString("description")
 		creditCardStr, _ := cmd.Flags().GetString("credit-card")
 		times, _ := cmd.Flags().GetInt("times")
@@ -242,7 +247,7 @@ var addExpenseCmd = &cobra.Command{
 }
 
 var addIncomeCmd = &cobra.Command{
-	Use:   "income [amount] --account <name> [--date x] [--category x] [--description x]",
+	Use:   "income [amount] --account <name> --date <YYYY-MM-DD> [--category x] --description <text>",
 	Short: "Add a new income",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -261,6 +266,11 @@ var addIncomeCmd = &cobra.Command{
 		dateStr, _ := cmd.Flags().GetString("date")
 		categoryStr, _ := cmd.Flags().GetString("category")
 		description, _ := cmd.Flags().GetString("description")
+
+		if dateStr == "" {
+			printer.PrintError("--date is required")
+			return
+		}
 
 		if accountStr == "" {
 			printer.PrintError("--account is required")
@@ -607,19 +617,22 @@ func getDefaultCurrency() string {
 
 func parseDate(dateStr string) time.Time {
 	if dateStr == "" {
-		return time.Now().UTC()
+		return time.Time{}
 	}
 
 	dateStr = strings.TrimSpace(dateStr)
 
-	formats := []string{"02-01-06", "02-01-2006", "2006-01-02"}
+	formats := []string{"2006-01-02", "06-01-02"}
 	for _, format := range formats {
 		if t, err := time.Parse(format, dateStr); err == nil {
+			if t.Year() < 100 {
+				t = t.AddDate(2000, 0, 0)
+			}
 			return t.UTC()
 		}
 	}
 
-	return time.Now().UTC()
+	return time.Time{}
 }
 
 func parseCommaSeparated(s string) []string {

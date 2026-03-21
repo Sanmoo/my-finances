@@ -52,11 +52,6 @@ func (m *MockEntriesRepository) RemoveTag(entryID int64, tag string) error {
 	return args.Error(0)
 }
 
-func (m *MockEntriesRepository) GetAllByYear(accountID int64, year int) ([]*entity.Entry, error) {
-	args := m.Called(accountID, year)
-	return args.Get(0).([]*entity.Entry), args.Error(1)
-}
-
 func TestAddEntry_Execute(t *testing.T) {
 	t.Run("success with simple amount", func(t *testing.T) {
 		mockEntryRepo := new(MockEntriesRepository)

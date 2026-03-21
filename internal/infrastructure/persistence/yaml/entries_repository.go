@@ -23,8 +23,8 @@ func NewEntriesRepository(basePath string) *EntriesRepository {
 	return &EntriesRepository{basePath: basePath}
 }
 
-func (r *EntriesRepository) filePath(accountName string, year int) string {
-	return filepath.Join(r.basePath, fmt.Sprintf("%d-%s-entries.yaml", year, accountName))
+func (r *EntriesRepository) filePath(accountName string, year int, month time.Month) string {
+	return filepath.Join(r.basePath, fmt.Sprintf("%d-%02d-%s-entries.yaml", year, month, accountName))
 }
 
 func (r *EntriesRepository) metaPath() string {
@@ -42,35 +42,7 @@ func (r *EntriesRepository) getEntryFilePath(entry *entity.Entry, accounts []Acc
 	if accountName == "" {
 		return "", fmt.Errorf("account not found for entry")
 	}
-	return r.filePath(accountName, entry.RealizationDate.Year()), nil
-}
-
-func (r *EntriesRepository) loadEntriesForAccount(accountID int64, year int, accounts []Account) ([]*entity.Entry, error) {
-	accountName := ""
-	for _, acc := range accounts {
-		if acc.ID == accountID {
-			accountName = acc.Name
-			break
-		}
-	}
-	if accountName == "" {
-		return []*entity.Entry{}, nil
-	}
-
-	path := r.filePath(accountName, year)
-	data, err := Read[EntriesData](path)
-	if err != nil {
-		return nil, err
-	}
-
-	entries := make([]*entity.Entry, 0)
-	for i := range data.Entries {
-		if data.Entries[i].AccountID == accountID {
-			entries = append(entries, data.Entries[i].ToEntity())
-		}
-	}
-
-	return entries, nil
+	return r.filePath(accountName, entry.RealizationDate.Year(), entry.RealizationDate.Month()), nil
 }
 
 func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
@@ -90,7 +62,7 @@ func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
 		return 0, fmt.Errorf("account not found for entry")
 	}
 
-	path := r.filePath(accountName, entry.RealizationDate.Year())
+	path := r.filePath(accountName, entry.RealizationDate.Year(), entry.RealizationDate.Month())
 
 	if err := EnsureMetaFile(r.metaPath()); err != nil {
 		return 0, err
@@ -189,6 +161,7 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 
 	var entries []*entity.Entry
 	currentYear := time.Now().Year()
+	currentMonth := time.Now().Month()
 
 	for _, acc := range accounts.Accounts {
 		if filters != nil && filters.AccountID != nil && *filters.AccountID != acc.ID {
@@ -196,42 +169,65 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 		}
 
 		for year := 2020; year <= currentYear+1; year++ {
-			path := r.filePath(acc.Name, year)
-			if _, err := os.Stat(path); os.IsNotExist(err) {
-				continue
-			}
+			for month := time.January; month <= time.December; month++ {
+				if year == currentYear+1 && month > currentMonth {
+					break
+				}
+				path := r.filePath(acc.Name, year, month)
+				if _, err := os.Stat(path); os.IsNotExist(err) {
+					continue
+				}
 
-			data, err := Read[EntriesData](path)
-			if err != nil {
-				continue
-			}
+				data, err := Read[EntriesData](path)
+				if err != nil {
+					continue
+				}
 
-			for i := range data.Entries {
-				entry := data.Entries[i].ToEntity()
-				if filters != nil {
-					if filters.AccountID != nil && *filters.AccountID != entry.AccountID {
-						continue
-					}
-					if filters.Type != nil && entry.Type != *filters.Type {
-						continue
-					}
-					if filters.FromDate != nil {
-						t, _ := time.Parse("2006-01-02", data.Entries[i].RealizationDate)
-						if t.Before(*filters.FromDate) {
+				for i := range data.Entries {
+					entry := data.Entries[i].ToEntity()
+					if filters != nil {
+						if filters.AccountID != nil && *filters.AccountID != entry.AccountID {
 							continue
 						}
-					}
-					if filters.ToDate != nil {
-						t, _ := time.Parse("2006-01-02", data.Entries[i].RealizationDate)
-						if t.After(*filters.ToDate) {
+						if filters.Type != nil && entry.Type != *filters.Type {
 							continue
 						}
+						if filters.FromDate != nil {
+							t, _ := time.Parse("2006-01-02", data.Entries[i].RealizationDate)
+							if t.Before(*filters.FromDate) {
+								continue
+							}
+						}
+						if filters.ToDate != nil {
+							t, _ := time.Parse("2006-01-02", data.Entries[i].RealizationDate)
+							if t.After(*filters.ToDate) {
+								continue
+							}
+						}
+						if len(filters.CategoryIDs) > 0 {
+							found := false
+							for _, catID := range filters.CategoryIDs {
+								if entry.CategoryID != nil && *entry.CategoryID == catID {
+									found = true
+									break
+								}
+							}
+							if !found {
+								continue
+							}
+						}
 					}
-					if len(filters.CategoryIDs) > 0 {
+
+					if filters != nil && len(filters.Tags) > 0 {
 						found := false
-						for _, catID := range filters.CategoryIDs {
-							if entry.CategoryID != nil && *entry.CategoryID == catID {
-								found = true
+						for _, ft := range filters.Tags {
+							for _, et := range entry.Tags {
+								if et == ft {
+									found = true
+									break
+								}
+							}
+							if found {
 								break
 							}
 						}
@@ -239,27 +235,9 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 							continue
 						}
 					}
-				}
 
-				if filters != nil && len(filters.Tags) > 0 {
-					found := false
-					for _, ft := range filters.Tags {
-						for _, et := range entry.Tags {
-							if et == ft {
-								found = true
-								break
-							}
-						}
-						if found {
-							break
-						}
-					}
-					if !found {
-						continue
-					}
+					entries = append(entries, entry)
 				}
-
-				entries = append(entries, entry)
 			}
 		}
 	}
@@ -298,15 +276,6 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 	})
 
 	return entries, nil
-}
-
-func (r *EntriesRepository) GetAllByYear(accountID int64, year int) ([]*entity.Entry, error) {
-	accounts, err := Read[AccountsData](filepath.Join(r.basePath, "accounts.yaml"))
-	if err != nil {
-		return nil, err
-	}
-
-	return r.loadEntriesForAccount(accountID, year, accounts.Accounts)
 }
 
 func (r *EntriesRepository) Update(entry *entity.Entry) error {

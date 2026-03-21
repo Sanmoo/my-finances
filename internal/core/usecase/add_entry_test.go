@@ -27,8 +27,8 @@ func (m *MockEntriesRepository) GetByID(id int64) (*entity.Entry, error) {
 	return args.Get(0).(*entity.Entry), args.Error(1)
 }
 
-func (m *MockEntriesRepository) GetByNamespaceID(namespaceID int64, filters *port.EntryFilters) ([]*entity.Entry, error) {
-	args := m.Called(namespaceID, filters)
+func (m *MockEntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry, error) {
+	args := m.Called(filters)
 	return args.Get(0).([]*entity.Entry), args.Error(1)
 }
 
@@ -63,11 +63,10 @@ func TestAddEntry_Execute(t *testing.T) {
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{
-			NamespaceID: 1,
-			Type:        entity.EntryTypeExpense,
-			Amount:      "50.00",
-			Currency:    "BRL",
-			Date:        date,
+			Type:     entity.EntryTypeExpense,
+			Amount:   "50.00",
+			Currency: "BRL",
+			Date:     date,
 		})
 
 		assert.NoError(t, err)
@@ -89,11 +88,10 @@ func TestAddEntry_Execute(t *testing.T) {
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{
-			NamespaceID: 1,
-			Type:        entity.EntryTypeIncome,
-			Amount:      "1000/2",
-			Currency:    "BRL",
-			Date:        date,
+			Type:     entity.EntryTypeIncome,
+			Amount:   "1000/2",
+			Currency: "BRL",
+			Date:     date,
 		})
 
 		assert.NoError(t, err)
@@ -113,12 +111,11 @@ func TestAddEntry_Execute(t *testing.T) {
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{
-			NamespaceID: 1,
-			Type:        entity.EntryTypeExpense,
-			Amount:      "100",
-			Currency:    "BRL",
-			Date:        date,
-			Times:       2,
+			Type:     entity.EntryTypeExpense,
+			Amount:   "100",
+			Currency: "BRL",
+			Date:     date,
+			Times:    2,
 		})
 
 		assert.NoError(t, err)
@@ -136,11 +133,10 @@ func TestAddEntry_Execute(t *testing.T) {
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{
-			NamespaceID: 1,
-			Type:        entity.EntryTypeExpense,
-			Amount:      "invalid",
-			Currency:    "BRL",
-			Date:        date,
+			Type:     entity.EntryTypeExpense,
+			Amount:   "invalid",
+			Currency: "BRL",
+			Date:     date,
 		})
 
 		assert.Error(t, err)

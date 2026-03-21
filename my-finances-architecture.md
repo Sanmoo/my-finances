@@ -2,7 +2,7 @@
 
 ## Context
 
-CLI tool for personal finance management. Supports multiple namespaces (isolated contexts), credit cards with invoice tracking, categories, tags, and math expression parsing for amounts.
+CLI tool for personal finance management. Supports multiple databases for isolated contexts, credit cards with invoice tracking, categories, tags, and math expression parsing for amounts.
 
 ## Architecture
 
@@ -13,57 +13,49 @@ myfin/
 ├── cmd/                    # Entry point (Cobra CLI)
 ├── internal/
 │   ├── domain/             # Pure business logic
-│   │   └── entity/         # Expense, Income, Account, CreditCard, Category, Namespace
+│   │   └── entity/         # Expense, Income, Account, CreditCard, Category
 │   ├── core/               # Use cases and ports
-│   │   ├── usecase/        # Application services
+│   │   ├── usecase/       # Application services
 │   │   └── port/           # Repository interfaces
-│   ├── infrastructure/     # External adapters
-│   │   ├── persistence/    # SQLite implementations
-│   │   ├── cli/            # Output formatters
-│   │   └── config/         # User config
-│   └── pkg/expr/           # Math expression parser
-└── myfin.db
+│   └── infrastructure/     # External adapters
+│       ├── persistence/     # SQLite implementations
+│       │   └── sqlite/      # SQLite repositories
+│       ├── database/        # Database manager
+│       ├── cli/             # Output formatters
+│       └── config/           # User config
+├── pkg/
+│   └── expr/               # Math expression parser
+└── migrations/              # golang-migrate SQL files
 ```
 
 ## Data Model
 
-### SQLite Schema
+### SQLite Schema (per database)
 
 ```sql
-namespaces (
-  id INTEGER PRIMARY KEY,
-  name TEXT UNIQUE NOT NULL,
-  default_credit_card_id INTEGER REFERENCES credit_cards(id),
-  default_currency TEXT DEFAULT 'BRL'
-)
-
 accounts (
   id INTEGER PRIMARY KEY,
-  namespace_id INTEGER REFERENCES namespaces(id),
-  name TEXT NOT NULL
+  name TEXT UNIQUE NOT NULL
 )
 
 credit_cards (
   id INTEGER PRIMARY KEY,
-  namespace_id INTEGER REFERENCES namespaces(id),
-  name TEXT NOT NULL,
-  closing_day INTEGER NOT NULL,
-  due_day INTEGER NOT NULL
+  name TEXT UNIQUE NOT NULL,
+  closing_day INTEGER NOT NULL CHECK(1-31),
+  due_day INTEGER NOT NULL CHECK(1-31)
 )
 
 categories (
   id INTEGER PRIMARY KEY,
-  namespace_id INTEGER REFERENCES namespaces(id),
-  name TEXT NOT NULL,
-  alias TEXT,
+  name TEXT UNIQUE NOT NULL,
+  alias TEXT UNIQUE,
   emoji TEXT,
-  type TEXT NOT NULL CHECK(type IN ('inc', 'exp'))
+  type TEXT NOT NULL CHECK('inc', 'exp')
 )
 
 entries (
   id INTEGER PRIMARY KEY,
-  namespace_id INTEGER REFERENCES namespaces(id),
-  type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
+  type TEXT NOT NULL CHECK('income', 'expense'),
   amount REAL NOT NULL,
   currency TEXT NOT NULL,
   description TEXT,
@@ -79,6 +71,30 @@ entry_tags (
   tag TEXT NOT NULL,
   PRIMARY KEY (entry_id, tag)
 )
+```
+
+## Database Management
+
+### Storage Locations
+
+- **Default location**: `~/.myfin/databases/`
+- **Custom location**: Configurable via `databases.path` in `~/.myfin.yaml`
+
+### Config File (`~/.myfin.yaml`)
+
+```yaml
+databases.path: ~/Dropbox/myfin/
+default.currency: BRL
+```
+
+### Usage
+
+```bash
+# Use default database
+myfin add expense 50.00 --category food
+
+# Use specific database
+myfin --db work add expense 100.00 --category lunch
 ```
 
 ## Domain Rules
@@ -104,10 +120,10 @@ myfin add category --type inc|exp --name <name> [--alias <alias>] [--emoji <emoj
 myfin add credit-card <name> --closing-day <n> --due-day <n>
 myfin add expense [amount] [--tags x,y] [--date DD-MM-YY] [--category x] [--description x] [--credit-card x] [--times n]
 myfin add income [amount] [--namespace x] [--date x] [--category x] [--description x]
-myfin report --format md [--namespace x] [--from x] [--until x] [--filter-tags x] [--filter-categories x]
-myfin report balances [--namespace x]
-myfin config default.namespace|default.currency|default.credit-card <value>
-myfin remove record <id> [--namespace x]
+myfin report --format md [--from x] [--until x] [--filter-tags x] [--filter-categories x]
+myfin report balances
+myfin config default.currency <value>
+myfin remove record <id>
 ```
 
 ## Decisions
@@ -118,3 +134,4 @@ myfin remove record <id> [--namespace x]
 4. **Math expressions**: Support +, -, *, / with standard operator precedence
 5. **Invoices**: Not stored; computed on-the-fly from realization_date, closing_day, and due_day
 6. **Output**: Markdown for reports, plain text for confirmations
+7. **Databases**: Multiple SQLite databases for isolation, selected via `--db` flag or config

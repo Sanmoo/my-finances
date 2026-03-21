@@ -1,6 +1,6 @@
 # myfin - CLI de Gestão de Finanças Pessoais
 
-CLI para gerenciamento de finanças pessoais com suporte a múltiplos namespaces (contextos isolados), cartões de crédito com rastreamento de faturas, categorias, tags e parsing de expressões matemáticas para valores.
+CLI para gerenciamento de finanças pessoais com suporte a múltiplos bancos de dados SQLite, cartões de crédito com rastreamento de faturas, categorias, tags e parsing de expressões matemáticas para valores.
 
 ## Pré-requisitos
 
@@ -32,10 +32,10 @@ sudo mv myfin /usr/local/bin/
 
 ## Configuração
 
-Ao executar pela primeira vez, o myfin cria um namespace padrão `default`. Você pode configurar padrões no arquivo `~/.myfin.yaml`:
+Cada banco de dados SQLite contém suas próprias contas, categorias, cartões e lançamentos. Você pode configurar padrões no arquivo `~/.myfin.yaml`:
 
 ```yaml
-default.namespace: main
+default.db_path: ./data/main.db
 default.currency: BRL
 default.credit-card: nubank
 ```
@@ -47,7 +47,7 @@ O arquivo é criado automaticamente na primeira configuração.
 ### Criar uma conta bancária
 
 ```bash
-myfin add account main
+myfin add account checking
 myfin add account savings
 ```
 
@@ -90,13 +90,15 @@ myfin add income 5000.00 --category salario --date 26-03-01
 myfin add income 3000+1500 --category renda-extra --description "Freelance"
 ```
 
-### namespaces
+### Bancos de dados
 
-Por padrão, usa o namespace `default`. Especifique outro com `-s`:
+Cada banco de dados SQLite é independente. Use `-d` para especificar qual database usar:
 
 ```bash
-myfin -s main add expense 100.00 --category comida
+myfin -d ./data/work.db add expense 100.00 --category comida
 ```
+
+Se não especificado, usa o `default.db_path` da configuração.
 
 ## Referência de Comandos
 

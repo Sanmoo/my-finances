@@ -12,7 +12,6 @@ func TestNewEntry(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		namespace int64
 		entryType EntryType
 		amount    float64
 		currency  string
@@ -22,7 +21,6 @@ func TestNewEntry(t *testing.T) {
 	}{
 		{
 			name:      "valid income entry",
-			namespace: 1,
 			entryType: EntryTypeIncome,
 			amount:    1000.50,
 			currency:  "BRL",
@@ -32,7 +30,6 @@ func TestNewEntry(t *testing.T) {
 		},
 		{
 			name:      "valid expense entry",
-			namespace: 1,
 			entryType: EntryTypeExpense,
 			amount:    50.00,
 			currency:  "BRL",
@@ -42,7 +39,6 @@ func TestNewEntry(t *testing.T) {
 		},
 		{
 			name:      "invalid entry type",
-			namespace: 1,
 			entryType: "invalid",
 			amount:    100.00,
 			currency:  "BRL",
@@ -51,7 +47,6 @@ func TestNewEntry(t *testing.T) {
 		},
 		{
 			name:      "zero amount",
-			namespace: 1,
 			entryType: EntryTypeIncome,
 			amount:    0,
 			currency:  "BRL",
@@ -60,7 +55,6 @@ func TestNewEntry(t *testing.T) {
 		},
 		{
 			name:      "negative amount",
-			namespace: 1,
 			entryType: EntryTypeIncome,
 			amount:    -10.00,
 			currency:  "BRL",
@@ -69,7 +63,6 @@ func TestNewEntry(t *testing.T) {
 		},
 		{
 			name:      "empty currency",
-			namespace: 1,
 			entryType: EntryTypeIncome,
 			amount:    100.00,
 			currency:  "",
@@ -78,7 +71,6 @@ func TestNewEntry(t *testing.T) {
 		},
 		{
 			name:      "zero date",
-			namespace: 1,
 			entryType: EntryTypeIncome,
 			amount:    100.00,
 			currency:  "BRL",
@@ -89,14 +81,13 @@ func TestNewEntry(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entry, err := NewEntry(tt.namespace, tt.entryType, tt.amount, tt.currency, tt.date, tt.opts...)
+			entry, err := NewEntry(tt.entryType, tt.amount, tt.currency, tt.date, tt.opts...)
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
 				assert.Nil(t, entry)
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, entry)
-				assert.Equal(t, tt.namespace, entry.NamespaceID)
 				assert.Equal(t, tt.entryType, entry.Type)
 				assert.Equal(t, tt.amount, entry.Amount)
 				assert.Equal(t, tt.currency, entry.Currency)
@@ -110,14 +101,14 @@ func TestNewEntry_WithOptions(t *testing.T) {
 	baseDate := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 
 	t.Run("with description", func(t *testing.T) {
-		entry, err := NewEntry(1, EntryTypeExpense, 50.00, "BRL", baseDate, WithDescription("Lunch"))
+		entry, err := NewEntry(EntryTypeExpense, 50.00, "BRL", baseDate, WithDescription("Lunch"))
 		assert.NoError(t, err)
 		assert.Equal(t, "Lunch", entry.Description)
 	})
 
 	t.Run("with category ID", func(t *testing.T) {
 		catID := int64(5)
-		entry, err := NewEntry(1, EntryTypeIncome, 1000.00, "BRL", baseDate, WithCategoryID(catID))
+		entry, err := NewEntry(EntryTypeIncome, 1000.00, "BRL", baseDate, WithCategoryID(catID))
 		assert.NoError(t, err)
 		assert.NotNil(t, entry.CategoryID)
 		assert.Equal(t, catID, *entry.CategoryID)
@@ -132,7 +123,7 @@ func TestNewEntry_WithOptions(t *testing.T) {
 		}
 
 		dateBeforeClosing := time.Date(2024, 3, 5, 0, 0, 0, 0, time.UTC)
-		entry, err := NewEntry(1, EntryTypeExpense, 100.00, "BRL", dateBeforeClosing, WithCreditCard(cc))
+		entry, err := NewEntry(EntryTypeExpense, 100.00, "BRL", dateBeforeClosing, WithCreditCard(cc))
 		assert.NoError(t, err)
 		assert.NotNil(t, entry.PaymentDate)
 		assert.Equal(t, 16, entry.PaymentDate.Day())
@@ -141,7 +132,7 @@ func TestNewEntry_WithOptions(t *testing.T) {
 
 	t.Run("with tags", func(t *testing.T) {
 		tags := []string{"food", "lunch"}
-		entry, err := NewEntry(1, EntryTypeExpense, 50.00, "BRL", baseDate, WithTags(tags))
+		entry, err := NewEntry(EntryTypeExpense, 50.00, "BRL", baseDate, WithTags(tags))
 		assert.NoError(t, err)
 		assert.Equal(t, tags, entry.Tags)
 	})

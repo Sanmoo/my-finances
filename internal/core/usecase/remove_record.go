@@ -7,8 +7,7 @@ import (
 )
 
 type RemoveRecordInput struct {
-	NamespaceID int64
-	RecordID    int64
+	RecordID int64
 }
 
 type RemoveRecord struct {
@@ -27,10 +26,6 @@ func (uc *RemoveRecord) Execute(input RemoveRecordInput) error {
 
 	if entry == nil {
 		return fmt.Errorf("entry with id %d not found", input.RecordID)
-	}
-
-	if entry.NamespaceID != input.NamespaceID {
-		return fmt.Errorf("entry does not belong to the specified namespace")
 	}
 
 	if err := uc.entryRepo.Delete(input.RecordID); err != nil {

@@ -11,14 +11,13 @@ var (
 )
 
 type CreditCard struct {
-	ID          int64
-	NamespaceID int64
-	Name        string
-	ClosingDay  int
-	DueDay      int
+	ID         int64
+	Name       string
+	ClosingDay int
+	DueDay     int
 }
 
-func NewCreditCard(namespaceID int64, name string, closingDay, dueDay int) (*CreditCard, error) {
+func NewCreditCard(name string, closingDay, dueDay int) (*CreditCard, error) {
 	if closingDay < 1 || closingDay > 31 {
 		return nil, ErrInvalidClosingDay
 	}
@@ -27,10 +26,9 @@ func NewCreditCard(namespaceID int64, name string, closingDay, dueDay int) (*Cre
 	}
 
 	return &CreditCard{
-		NamespaceID: namespaceID,
-		Name:        name,
-		ClosingDay:  closingDay,
-		DueDay:      dueDay,
+		Name:       name,
+		ClosingDay: closingDay,
+		DueDay:     dueDay,
 	}, nil
 }
 

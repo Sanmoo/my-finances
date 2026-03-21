@@ -7,7 +7,6 @@ import (
 )
 
 var (
-	ErrEmptyName        = errors.New("name cannot be empty")
 	ErrInvalidEntryType = errors.New("entry type must be 'income' or 'expense'")
 	ErrInvalidAmount    = errors.New("amount must be greater than 0")
 	ErrInvalidDate      = errors.New("date cannot be empty")
@@ -23,7 +22,6 @@ const (
 
 type Entry struct {
 	ID              int64
-	NamespaceID     int64
 	Type            EntryType
 	Amount          float64
 	Currency        string
@@ -36,7 +34,7 @@ type Entry struct {
 	Tags            []string
 }
 
-func NewEntry(namespaceID int64, entryType EntryType, amount float64, currency string, realizationDate time.Time, opts ...EntryOption) (*Entry, error) {
+func NewEntry(entryType EntryType, amount float64, currency string, realizationDate time.Time, opts ...EntryOption) (*Entry, error) {
 	if entryType != EntryTypeIncome && entryType != EntryTypeExpense {
 		return nil, ErrInvalidEntryType
 	}
@@ -51,7 +49,6 @@ func NewEntry(namespaceID int64, entryType EntryType, amount float64, currency s
 	}
 
 	entry := &Entry{
-		NamespaceID:     namespaceID,
 		Type:            entryType,
 		Amount:          amount,
 		Currency:        strings.ToUpper(currency),

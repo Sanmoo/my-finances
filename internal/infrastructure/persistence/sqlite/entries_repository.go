@@ -19,8 +19,8 @@ func NewEntriesRepository(db *DB) *EntriesRepository {
 }
 
 func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
-	query := `INSERT INTO entries (namespace_id, type, amount, currency, description, category_id, credit_card_id, realization_date, payment_date, created_at) 
-			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO entries (type, amount, currency, description, category_id, credit_card_id, realization_date, payment_date, created_at) 
+			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	var categoryID, creditCardID interface{}
 	if entry.CategoryID != nil {
@@ -36,7 +36,6 @@ func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
 	}
 
 	result, err := r.db.Exec(query,
-		entry.NamespaceID,
 		entry.Type,
 		entry.Amount,
 		entry.Currency,
@@ -66,26 +65,26 @@ func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
 }
 
 func (r *EntriesRepository) GetByID(id int64) (*entity.Entry, error) {
-	query := `SELECT id, namespace_id, type, amount, currency, description, category_id, credit_card_id, realization_date, payment_date, created_at 
+	query := `SELECT id, type, amount, currency, description, category_id, credit_card_id, realization_date, payment_date, created_at 
 			  FROM entries WHERE id = ?`
 
 	var entry entity.Entry
 	var description sql.NullString
 	var categoryID, creditCardID sql.NullInt64
 	var paymentDate sql.NullString
+	var realizationDate, createdAt string
 
 	err := r.db.QueryRow(query, id).Scan(
 		&entry.ID,
-		&entry.NamespaceID,
 		&entry.Type,
 		&entry.Amount,
 		&entry.Currency,
 		&description,
 		&categoryID,
 		&creditCardID,
-		&entry.RealizationDate,
+		&realizationDate,
 		&paymentDate,
-		&entry.CreatedAt,
+		&createdAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -103,9 +102,15 @@ func (r *EntriesRepository) GetByID(id int64) (*entity.Entry, error) {
 	if creditCardID.Valid {
 		entry.CreditCardID = &creditCardID.Int64
 	}
+	if realizationDate != "" {
+		entry.RealizationDate, _ = time.Parse("2006-01-02", realizationDate)
+	}
 	if paymentDate.Valid {
 		t, _ := time.Parse("2006-01-02", paymentDate.String)
 		entry.PaymentDate = &t
+	}
+	if createdAt != "" {
+		entry.CreatedAt, _ = time.Parse("2006-01-02", createdAt)
 	}
 
 	tags, err := r.getTagsByEntryID(entry.ID)
@@ -117,11 +122,10 @@ func (r *EntriesRepository) GetByID(id int64) (*entity.Entry, error) {
 	return &entry, nil
 }
 
-func (r *EntriesRepository) GetByNamespaceID(namespaceID int64, filters *port.EntryFilters) ([]*entity.Entry, error) {
-	query := `SELECT id, namespace_id, type, amount, currency, description, category_id, credit_card_id, realization_date, payment_date, created_at 
-			  FROM entries WHERE namespace_id = ?`
+func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry, error) {
+	query := `SELECT id, type, amount, currency, description, category_id, credit_card_id, realization_date, payment_date, created_at 
+			  FROM entries WHERE 1=1`
 	var args []interface{}
-	args = append(args, namespaceID)
 
 	if filters != nil {
 		if filters.Type != nil {
@@ -164,19 +168,19 @@ func (r *EntriesRepository) GetByNamespaceID(namespaceID int64, filters *port.En
 		var description sql.NullString
 		var categoryID, creditCardID sql.NullInt64
 		var paymentDate sql.NullString
+		var realizationDate, createdAt string
 
 		if err := rows.Scan(
 			&entry.ID,
-			&entry.NamespaceID,
 			&entry.Type,
 			&entry.Amount,
 			&entry.Currency,
 			&description,
 			&categoryID,
 			&creditCardID,
-			&entry.RealizationDate,
+			&realizationDate,
 			&paymentDate,
-			&entry.CreatedAt,
+			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan entry: %w", err)
 		}
@@ -190,9 +194,15 @@ func (r *EntriesRepository) GetByNamespaceID(namespaceID int64, filters *port.En
 		if creditCardID.Valid {
 			entry.CreditCardID = &creditCardID.Int64
 		}
+		if realizationDate != "" {
+			entry.RealizationDate, _ = time.Parse("2006-01-02", realizationDate)
+		}
 		if paymentDate.Valid {
 			t, _ := time.Parse("2006-01-02", paymentDate.String)
 			entry.PaymentDate = &t
+		}
+		if createdAt != "" {
+			entry.CreatedAt, _ = time.Parse("2006-01-02", createdAt)
 		}
 
 		tags, err := r.getTagsByEntryID(entry.ID)
@@ -228,7 +238,7 @@ func (r *EntriesRepository) filterByTags(entries []*entity.Entry, filterTags []s
 }
 
 func (r *EntriesRepository) Update(entry *entity.Entry) error {
-	query := `UPDATE entries SET namespace_id = ?, type = ?, amount = ?, currency = ?, description = ?, category_id = ?, credit_card_id = ?, realization_date = ?, payment_date = ? WHERE id = ?`
+	query := `UPDATE entries SET type = ?, amount = ?, currency = ?, description = ?, category_id = ?, credit_card_id = ?, realization_date = ?, payment_date = ? WHERE id = ?`
 
 	var categoryID, creditCardID interface{}
 	if entry.CategoryID != nil {
@@ -244,7 +254,6 @@ func (r *EntriesRepository) Update(entry *entity.Entry) error {
 	}
 
 	_, err := r.db.Exec(query,
-		entry.NamespaceID,
 		entry.Type,
 		entry.Amount,
 		entry.Currency,

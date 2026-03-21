@@ -9,7 +9,6 @@ import (
 )
 
 type ReportInput struct {
-	NamespaceID      int64
 	Format           string
 	From             *time.Time
 	To               *time.Time
@@ -58,12 +57,12 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 		filters.Tags = input.FilterTags
 	}
 
-	entries, err := uc.entryRepo.GetByNamespaceID(input.NamespaceID, filters)
+	entries, err := uc.entryRepo.GetAll(filters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entries: %w", err)
 	}
 
-	categories, err := uc.categoryRepo.GetByNamespaceID(input.NamespaceID)
+	categories, err := uc.categoryRepo.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get categories: %w", err)
 	}

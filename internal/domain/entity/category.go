@@ -15,15 +15,14 @@ const (
 )
 
 type Category struct {
-	ID          int64
-	NamespaceID int64
-	Name        string
-	Alias       *string
-	Emoji       *string
-	Type        CategoryType
+	ID    int64
+	Name  string
+	Alias *string
+	Emoji *string
+	Type  CategoryType
 }
 
-func NewCategory(namespaceID int64, name string, catType CategoryType, opts ...CategoryOption) (*Category, error) {
+func NewCategory(name string, catType CategoryType, opts ...CategoryOption) (*Category, error) {
 	name = trimLower(name)
 	if name == "" {
 		return nil, ErrEmptyCategoryName
@@ -33,9 +32,8 @@ func NewCategory(namespaceID int64, name string, catType CategoryType, opts ...C
 	}
 
 	cat := &Category{
-		NamespaceID: namespaceID,
-		Name:        name,
-		Type:        catType,
+		Name: name,
+		Type: catType,
 	}
 
 	for _, opt := range opts {

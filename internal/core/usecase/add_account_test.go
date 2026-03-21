@@ -25,8 +25,8 @@ func (m *MockAccountsRepository) GetByID(id int64) (*entity.Account, error) {
 	return args.Get(0).(*entity.Account), args.Error(1)
 }
 
-func (m *MockAccountsRepository) GetByNamespaceID(namespaceID int64) ([]*entity.Account, error) {
-	args := m.Called(namespaceID)
+func (m *MockAccountsRepository) GetAll() ([]*entity.Account, error) {
+	args := m.Called()
 	return args.Get(0).([]*entity.Account), args.Error(1)
 }
 
@@ -48,8 +48,7 @@ func TestAddAccount_Execute(t *testing.T) {
 		mockRepo.On("Create", mock.AnythingOfType("*entity.Account")).Return(int64(1), nil)
 
 		result, err := uc.Execute(AddAccountInput{
-			NamespaceID: 1,
-			Name:        "main",
+			Name: "main",
 		})
 
 		assert.NoError(t, err)
@@ -65,8 +64,7 @@ func TestAddAccount_Execute(t *testing.T) {
 		uc := NewAddAccount(mockRepo)
 
 		result, err := uc.Execute(AddAccountInput{
-			NamespaceID: 1,
-			Name:        "",
+			Name: "",
 		})
 
 		assert.Error(t, err)

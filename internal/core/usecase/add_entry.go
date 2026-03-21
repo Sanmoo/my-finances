@@ -10,7 +10,6 @@ import (
 )
 
 type AddEntryInput struct {
-	NamespaceID int64
 	Type        entity.EntryType
 	Amount      string
 	Currency    string
@@ -98,7 +97,7 @@ func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.T
 		opts = append(opts, entity.WithTags(input.Tags))
 	}
 
-	entry, err := entity.NewEntry(input.NamespaceID, input.Type, amount, input.Currency, date, opts...)
+	entry, err := entity.NewEntry(input.Type, amount, input.Currency, date, opts...)
 	if err != nil {
 		return nil, err
 	}

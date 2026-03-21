@@ -9,7 +9,7 @@ import (
 type EntriesRepository interface {
 	Create(entry *entity.Entry) (int64, error)
 	GetByID(id int64) (*entity.Entry, error)
-	GetByNamespaceID(namespaceID int64, filters *EntryFilters) ([]*entity.Entry, error)
+	GetAll(filters *EntryFilters) ([]*entity.Entry, error)
 	Update(entry *entity.Entry) error
 	Delete(id int64) error
 	AddTag(entryID int64, tag string) error

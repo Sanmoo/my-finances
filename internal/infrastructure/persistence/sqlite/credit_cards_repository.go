@@ -16,9 +16,9 @@ func NewCreditCardsRepository(db *DB) *CreditCardsRepository {
 }
 
 func (r *CreditCardsRepository) Create(cc *entity.CreditCard) (int64, error) {
-	query := `INSERT INTO credit_cards (namespace_id, name, closing_day, due_day) VALUES (?, ?, ?, ?)`
+	query := `INSERT INTO credit_cards (name, closing_day, due_day) VALUES (?, ?, ?)`
 
-	result, err := r.db.Exec(query, cc.NamespaceID, cc.Name, cc.ClosingDay, cc.DueDay)
+	result, err := r.db.Exec(query, cc.Name, cc.ClosingDay, cc.DueDay)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create credit card: %w", err)
 	}
@@ -32,11 +32,11 @@ func (r *CreditCardsRepository) Create(cc *entity.CreditCard) (int64, error) {
 }
 
 func (r *CreditCardsRepository) GetByID(id int64) (*entity.CreditCard, error) {
-	query := `SELECT id, namespace_id, name, closing_day, due_day FROM credit_cards WHERE id = ?`
+	query := `SELECT id, name, closing_day, due_day FROM credit_cards WHERE id = ?`
 
 	var cc entity.CreditCard
 
-	err := r.db.QueryRow(query, id).Scan(&cc.ID, &cc.NamespaceID, &cc.Name, &cc.ClosingDay, &cc.DueDay)
+	err := r.db.QueryRow(query, id).Scan(&cc.ID, &cc.Name, &cc.ClosingDay, &cc.DueDay)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -47,10 +47,10 @@ func (r *CreditCardsRepository) GetByID(id int64) (*entity.CreditCard, error) {
 	return &cc, nil
 }
 
-func (r *CreditCardsRepository) GetByNamespaceID(namespaceID int64) ([]*entity.CreditCard, error) {
-	query := `SELECT id, namespace_id, name, closing_day, due_day FROM credit_cards WHERE namespace_id = ? ORDER BY name`
+func (r *CreditCardsRepository) GetAll() ([]*entity.CreditCard, error) {
+	query := `SELECT id, name, closing_day, due_day FROM credit_cards ORDER BY name`
 
-	rows, err := r.db.Query(query, namespaceID)
+	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get credit cards: %w", err)
 	}
@@ -60,7 +60,7 @@ func (r *CreditCardsRepository) GetByNamespaceID(namespaceID int64) ([]*entity.C
 	for rows.Next() {
 		var cc entity.CreditCard
 
-		if err := rows.Scan(&cc.ID, &cc.NamespaceID, &cc.Name, &cc.ClosingDay, &cc.DueDay); err != nil {
+		if err := rows.Scan(&cc.ID, &cc.Name, &cc.ClosingDay, &cc.DueDay); err != nil {
 			return nil, fmt.Errorf("failed to scan credit card: %w", err)
 		}
 
@@ -71,9 +71,9 @@ func (r *CreditCardsRepository) GetByNamespaceID(namespaceID int64) ([]*entity.C
 }
 
 func (r *CreditCardsRepository) Update(cc *entity.CreditCard) error {
-	query := `UPDATE credit_cards SET namespace_id = ?, name = ?, closing_day = ?, due_day = ? WHERE id = ?`
+	query := `UPDATE credit_cards SET name = ?, closing_day = ?, due_day = ? WHERE id = ?`
 
-	_, err := r.db.Exec(query, cc.NamespaceID, cc.Name, cc.ClosingDay, cc.DueDay, cc.ID)
+	_, err := r.db.Exec(query, cc.Name, cc.ClosingDay, cc.DueDay, cc.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update credit card: %w", err)
 	}

@@ -6,11 +6,10 @@ import (
 )
 
 type AddCategoryInput struct {
-	NamespaceID int64
-	Name        string
-	Type        entity.CategoryType
-	Alias       string
-	Emoji       string
+	Name  string
+	Type  entity.CategoryType
+	Alias string
+	Emoji string
 }
 
 type AddCategoryOutput struct {
@@ -34,7 +33,7 @@ func (uc *AddCategory) Execute(input AddCategoryInput) (*AddCategoryOutput, erro
 		opts = append(opts, entity.WithEmoji(input.Emoji))
 	}
 
-	category, err := entity.NewCategory(input.NamespaceID, input.Name, input.Type, opts...)
+	category, err := entity.NewCategory(input.Name, input.Type, opts...)
 	if err != nil {
 		return nil, err
 	}

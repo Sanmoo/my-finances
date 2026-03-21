@@ -11,9 +11,8 @@ import (
 )
 
 type Config struct {
-	DefaultNamespace  string `koanf:"default.namespace"`
-	DefaultCurrency   string `koanf:"default.currency"`
-	DefaultCreditCard string `koanf:"default.credit-card"`
+	DatabasesPath   string `koanf:"databases.path"`
+	DefaultCurrency string `koanf:"default.currency"`
 }
 
 type Loader struct {
@@ -44,9 +43,8 @@ func (l *Loader) Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		DefaultNamespace:  k.String("default.namespace"),
-		DefaultCurrency:   k.String("default.currency"),
-		DefaultCreditCard: k.String("default.credit-card"),
+		DatabasesPath:   k.String("databases.path"),
+		DefaultCurrency: k.String("default.currency"),
 	}
 
 	if cfg.DefaultCurrency == "" {
@@ -62,14 +60,11 @@ func (l *Loader) Save(cfg *Config) error {
 	}
 
 	content := "# myfin configuration\n"
-	if cfg.DefaultNamespace != "" {
-		content += fmt.Sprintf("default.namespace: %s\n", cfg.DefaultNamespace)
+	if cfg.DatabasesPath != "" {
+		content += fmt.Sprintf("databases.path: %s\n", cfg.DatabasesPath)
 	}
 	if cfg.DefaultCurrency != "" {
 		content += fmt.Sprintf("default.currency: %s\n", cfg.DefaultCurrency)
-	}
-	if cfg.DefaultCreditCard != "" {
-		content += fmt.Sprintf("default.credit-card: %s\n", cfg.DefaultCreditCard)
 	}
 
 	if err := os.WriteFile(l.path, []byte(content), 0644); err != nil {

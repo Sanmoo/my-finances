@@ -6,8 +6,7 @@ import (
 )
 
 type AddAccountInput struct {
-	NamespaceID int64
-	Name        string
+	Name string
 }
 
 type AddAccountOutput struct {
@@ -23,7 +22,7 @@ func NewAddAccount(repo port.AccountsRepository) *AddAccount {
 }
 
 func (uc *AddAccount) Execute(input AddAccountInput) (*AddAccountOutput, error) {
-	account, err := entity.NewAccount(input.NamespaceID, input.Name)
+	account, err := entity.NewAccount(input.Name)
 	if err != nil {
 		return nil, err
 	}

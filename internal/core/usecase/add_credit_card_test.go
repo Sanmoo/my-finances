@@ -25,8 +25,8 @@ func (m *MockCreditCardsRepository) GetByID(id int64) (*entity.CreditCard, error
 	return args.Get(0).(*entity.CreditCard), args.Error(1)
 }
 
-func (m *MockCreditCardsRepository) GetByNamespaceID(namespaceID int64) ([]*entity.CreditCard, error) {
-	args := m.Called(namespaceID)
+func (m *MockCreditCardsRepository) GetAll() ([]*entity.CreditCard, error) {
+	args := m.Called()
 	return args.Get(0).([]*entity.CreditCard), args.Error(1)
 }
 
@@ -48,10 +48,9 @@ func TestAddCreditCard_Execute(t *testing.T) {
 		mockRepo.On("Create", mock.AnythingOfType("*entity.CreditCard")).Return(int64(1), nil)
 
 		result, err := uc.Execute(AddCreditCardInput{
-			NamespaceID: 1,
-			Name:        "Nubank",
-			ClosingDay:  9,
-			DueDay:      16,
+			Name:       "Nubank",
+			ClosingDay: 9,
+			DueDay:     16,
 		})
 
 		assert.NoError(t, err)
@@ -69,10 +68,9 @@ func TestAddCreditCard_Execute(t *testing.T) {
 		uc := NewAddCreditCard(mockRepo)
 
 		result, err := uc.Execute(AddCreditCardInput{
-			NamespaceID: 1,
-			Name:        "Nubank",
-			ClosingDay:  0,
-			DueDay:      16,
+			Name:       "Nubank",
+			ClosingDay: 0,
+			DueDay:     16,
 		})
 
 		assert.Error(t, err)

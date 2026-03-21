@@ -6,10 +6,9 @@ import (
 )
 
 type AddCreditCardInput struct {
-	NamespaceID int64
-	Name        string
-	ClosingDay  int
-	DueDay      int
+	Name       string
+	ClosingDay int
+	DueDay     int
 }
 
 type AddCreditCardOutput struct {
@@ -25,7 +24,7 @@ func NewAddCreditCard(repo port.CreditCardsRepository) *AddCreditCard {
 }
 
 func (uc *AddCreditCard) Execute(input AddCreditCardInput) (*AddCreditCardOutput, error) {
-	cc, err := entity.NewCreditCard(input.NamespaceID, input.Name, input.ClosingDay, input.DueDay)
+	cc, err := entity.NewCreditCard(input.Name, input.ClosingDay, input.DueDay)
 	if err != nil {
 		return nil, err
 	}

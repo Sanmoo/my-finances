@@ -16,9 +16,9 @@ func NewAccountsRepository(db *DB) *AccountsRepository {
 }
 
 func (r *AccountsRepository) Create(acc *entity.Account) (int64, error) {
-	query := `INSERT INTO accounts (namespace_id, name) VALUES (?, ?)`
+	query := `INSERT INTO accounts (name) VALUES (?)`
 
-	result, err := r.db.Exec(query, acc.NamespaceID, acc.Name)
+	result, err := r.db.Exec(query, acc.Name)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create account: %w", err)
 	}
@@ -32,11 +32,11 @@ func (r *AccountsRepository) Create(acc *entity.Account) (int64, error) {
 }
 
 func (r *AccountsRepository) GetByID(id int64) (*entity.Account, error) {
-	query := `SELECT id, namespace_id, name FROM accounts WHERE id = ?`
+	query := `SELECT id, name FROM accounts WHERE id = ?`
 
 	var acc entity.Account
 
-	err := r.db.QueryRow(query, id).Scan(&acc.ID, &acc.NamespaceID, &acc.Name)
+	err := r.db.QueryRow(query, id).Scan(&acc.ID, &acc.Name)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -47,10 +47,10 @@ func (r *AccountsRepository) GetByID(id int64) (*entity.Account, error) {
 	return &acc, nil
 }
 
-func (r *AccountsRepository) GetByNamespaceID(namespaceID int64) ([]*entity.Account, error) {
-	query := `SELECT id, namespace_id, name FROM accounts WHERE namespace_id = ? ORDER BY name`
+func (r *AccountsRepository) GetAll() ([]*entity.Account, error) {
+	query := `SELECT id, name FROM accounts ORDER BY name`
 
-	rows, err := r.db.Query(query, namespaceID)
+	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get accounts: %w", err)
 	}
@@ -60,7 +60,7 @@ func (r *AccountsRepository) GetByNamespaceID(namespaceID int64) ([]*entity.Acco
 	for rows.Next() {
 		var acc entity.Account
 
-		if err := rows.Scan(&acc.ID, &acc.NamespaceID, &acc.Name); err != nil {
+		if err := rows.Scan(&acc.ID, &acc.Name); err != nil {
 			return nil, fmt.Errorf("failed to scan account: %w", err)
 		}
 
@@ -71,9 +71,9 @@ func (r *AccountsRepository) GetByNamespaceID(namespaceID int64) ([]*entity.Acco
 }
 
 func (r *AccountsRepository) Update(acc *entity.Account) error {
-	query := `UPDATE accounts SET namespace_id = ?, name = ? WHERE id = ?`
+	query := `UPDATE accounts SET name = ? WHERE id = ?`
 
-	_, err := r.db.Exec(query, acc.NamespaceID, acc.Name, acc.ID)
+	_, err := r.db.Exec(query, acc.Name, acc.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update account: %w", err)
 	}

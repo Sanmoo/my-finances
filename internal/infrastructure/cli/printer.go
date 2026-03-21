@@ -14,13 +14,6 @@ func NewPrinter() *Printer {
 	return &Printer{}
 }
 
-func (p *Printer) PrintNamespace(ns *entity.Namespace) {
-	fmt.Printf("Namespace created/updated: %s (ID: %d)\n", ns.Name, ns.ID)
-	if ns.DefaultCurrency != "" {
-		fmt.Printf("  Default Currency: %s\n", ns.DefaultCurrency)
-	}
-}
-
 func (p *Printer) PrintAccount(acc *entity.Account) {
 	fmt.Printf("Account created: %s (ID: %d)\n", acc.Name, acc.ID)
 }

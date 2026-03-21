@@ -12,15 +12,16 @@ import (
 	"github.com/Sanmoo/my-finances/internal/domain/entity"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/cli"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/config"
+	"github.com/Sanmoo/my-finances/internal/infrastructure/database"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/persistence"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/persistence/sqlite"
 )
 
 var (
-	dbPath        string
-	namespaceFlag string
-	printer       = cli.NewPrinter()
-	cfgLoader     = config.NewLoader()
+	dbFlag    string
+	printer   = cli.NewPrinter()
+	cfgLoader = config.NewLoader()
+	dbManager *database.Manager
 )
 
 func main() {
@@ -45,20 +46,18 @@ var addAccountCmd = &cobra.Command{
 	Short: "Add a new account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := initDB()
+		db, err := getDB()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
 		}
 		defer db.Close()
 
-		nsID := getNamespaceID(db)
 		repo := sqlite.NewAccountsRepository(db)
 		uc := usecase.NewAddAccount(repo)
 
 		result, err := uc.Execute(usecase.AddAccountInput{
-			NamespaceID: nsID,
-			Name:        args[0],
+			Name: args[0],
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
@@ -73,7 +72,7 @@ var addCategoryCmd = &cobra.Command{
 	Use:   "category --type <inc|exp> --name <name> [--alias <alias>] [--emoji <emoji>]",
 	Short: "Add a new category",
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := initDB()
+		db, err := getDB()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
@@ -90,16 +89,14 @@ var addCategoryCmd = &cobra.Command{
 			return
 		}
 
-		nsID := getNamespaceID(db)
 		repo := sqlite.NewCategoriesRepository(db)
 		uc := usecase.NewAddCategory(repo)
 
 		result, err := uc.Execute(usecase.AddCategoryInput{
-			NamespaceID: nsID,
-			Name:        name,
-			Type:        entity.CategoryType(catType),
-			Alias:       alias,
-			Emoji:       emoji,
+			Name:  name,
+			Type:  entity.CategoryType(catType),
+			Alias: alias,
+			Emoji: emoji,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
@@ -115,7 +112,7 @@ var addCreditCardCmd = &cobra.Command{
 	Short: "Add a new credit card",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := initDB()
+		db, err := getDB()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
@@ -130,15 +127,13 @@ var addCreditCardCmd = &cobra.Command{
 			return
 		}
 
-		nsID := getNamespaceID(db)
 		repo := sqlite.NewCreditCardsRepository(db)
 		uc := usecase.NewAddCreditCard(repo)
 
 		result, err := uc.Execute(usecase.AddCreditCardInput{
-			NamespaceID: nsID,
-			Name:        args[0],
-			ClosingDay:  closingDay,
-			DueDay:      dueDay,
+			Name:       args[0],
+			ClosingDay: closingDay,
+			DueDay:     dueDay,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
@@ -154,7 +149,7 @@ var addExpenseCmd = &cobra.Command{
 	Short: "Add a new expense",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := initDB()
+		db, err := getDB()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
@@ -175,7 +170,6 @@ var addExpenseCmd = &cobra.Command{
 
 		date := parseDate(dateStr)
 		currency := getDefaultCurrency()
-		nsID := getNamespaceID(db)
 
 		entryRepo := sqlite.NewEntriesRepository(db)
 		categoryRepo := sqlite.NewCategoriesRepository(db)
@@ -184,7 +178,7 @@ var addExpenseCmd = &cobra.Command{
 
 		var categoryID *int64
 		if categoryStr != "" {
-			cat, _ := categoryRepo.GetByNameOrAlias(nsID, categoryStr)
+			cat, _ := categoryRepo.GetByNameOrAlias(categoryStr)
 			if cat != nil {
 				categoryID = &cat.ID
 			}
@@ -192,7 +186,7 @@ var addExpenseCmd = &cobra.Command{
 
 		var cc *entity.CreditCard
 		if creditCardStr != "" {
-			ccs, _ := ccRepo.GetByNamespaceID(nsID)
+			ccs, _ := ccRepo.GetAll()
 			for _, c := range ccs {
 				if c.Name == creditCardStr {
 					cc = c
@@ -210,7 +204,6 @@ var addExpenseCmd = &cobra.Command{
 		}
 
 		result, err := uc.Execute(usecase.AddEntryInput{
-			NamespaceID: nsID,
 			Type:        entity.EntryTypeExpense,
 			Amount:      amount,
 			Currency:    currency,
@@ -237,7 +230,7 @@ var addIncomeCmd = &cobra.Command{
 	Short: "Add a new income",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := initDB()
+		db, err := getDB()
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
@@ -255,7 +248,6 @@ var addIncomeCmd = &cobra.Command{
 
 		date := parseDate(dateStr)
 		currency := getDefaultCurrency()
-		nsID := getNamespaceID(db)
 
 		entryRepo := sqlite.NewEntriesRepository(db)
 		categoryRepo := sqlite.NewCategoriesRepository(db)
@@ -264,14 +256,13 @@ var addIncomeCmd = &cobra.Command{
 
 		var categoryID *int64
 		if categoryStr != "" {
-			cat, _ := categoryRepo.GetByNameOrAlias(nsID, categoryStr)
+			cat, _ := categoryRepo.GetByNameOrAlias(categoryStr)
 			if cat != nil {
 				categoryID = &cat.ID
 			}
 		}
 
 		result, err := uc.Execute(usecase.AddEntryInput{
-			NamespaceID: nsID,
 			Type:        entity.EntryTypeIncome,
 			Amount:      amount,
 			Currency:    currency,
@@ -299,8 +290,7 @@ func init() {
 	addCmd.AddCommand(addExpenseCmd)
 	addCmd.AddCommand(addIncomeCmd)
 
-	rootCmd.PersistentFlags().StringVarP(&namespaceFlag, "namespace", "s", "", "namespace to use")
-	rootCmd.PersistentFlags().StringVar(&dbPath, "db", "", "database path")
+	rootCmd.PersistentFlags().StringVar(&dbFlag, "db", "", "database name (default or custom)")
 
 	addCategoryCmd.Flags().StringP("type", "t", "", "category type (inc or exp)")
 	addCategoryCmd.Flags().StringP("name", "n", "", "category name")
@@ -322,51 +312,16 @@ func init() {
 	addIncomeCmd.Flags().String("description", "", "description")
 }
 
-func initDB() (*sqlite.DB, error) {
-	path := dbPath
-	if path == "" {
-		homeDir, _ := os.UserHomeDir()
-		path = filepath.Join(homeDir, "myfin.db")
+func getDBManager() *database.Manager {
+	if dbManager == nil {
+		dbManager = database.NewManager(cfgLoader)
 	}
-
-	db, err := sqlite.Open(path)
-	if err != nil {
-		return nil, err
-	}
-
-	absMigrationsPath, _ := filepath.Abs("migrations")
-	mm := persistence.NewMigrationManager(db.DB, "file://"+absMigrationsPath)
-	if err := mm.Up(); err != nil {
-		return nil, err
-	}
-
-	return db, nil
+	return dbManager
 }
 
-func getNamespaceID(db *sqlite.DB) int64 {
-	nsName := namespaceFlag
-	if nsName == "" {
-		cfg, err := cfgLoader.Load()
-		if err == nil && cfg != nil {
-			nsName = cfg.DefaultNamespace
-		}
-	}
-	if nsName == "" {
-		nsName = "default"
-	}
-
-	nsRepo := sqlite.NewNamespacesRepository(db)
-	ns, err := nsRepo.GetByName(nsName)
-	if err != nil || ns == nil {
-		ns, _ = entity.NewNamespace(nsName)
-		if ns != nil {
-			id, _ := nsRepo.Create(ns)
-			return id
-		}
-		return 1
-	}
-
-	return ns.ID
+func getDB() (*sqlite.DB, error) {
+	mgr := getDBManager()
+	return mgr.GetDatabase(dbFlag)
 }
 
 func getDefaultCurrency() string {
@@ -395,4 +350,9 @@ func parseDate(dateStr string) time.Time {
 	}
 
 	return time.Now().UTC()
+}
+
+func init() {
+	_ = filepath.Base
+	_ = persistence.NewMigrationManager
 }

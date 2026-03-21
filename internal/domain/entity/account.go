@@ -7,19 +7,17 @@ var (
 )
 
 type Account struct {
-	ID          int64
-	NamespaceID int64
-	Name        string
+	ID   int64
+	Name string
 }
 
-func NewAccount(namespaceID int64, name string) (*Account, error) {
+func NewAccount(name string) (*Account, error) {
 	name = trimLower(name)
 	if name == "" {
 		return nil, ErrEmptyAccountName
 	}
 
 	return &Account{
-		NamespaceID: namespaceID,
-		Name:        name,
+		Name: name,
 	}, nil
 }

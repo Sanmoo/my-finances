@@ -14,10 +14,17 @@ func NewPrinter() *Printer {
 	return &Printer{}
 }
 
-func int64SliceToString(ids []int64) string {
-	strs := make([]string, len(ids))
-	for i, id := range ids {
-		strs[i] = fmt.Sprintf("%d", id)
+func tagNames(ids []int64, tags map[int64]*entity.Tag) string {
+	if len(ids) == 0 {
+		return ""
+	}
+	strs := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if tag, ok := tags[id]; ok {
+			strs = append(strs, tag.Name)
+		} else {
+			strs = append(strs, fmt.Sprintf("tag_%d", id))
+		}
 	}
 	return strings.Join(strs, ", ")
 }
@@ -39,7 +46,7 @@ func (p *Printer) PrintCreditCard(cc *entity.CreditCard) {
 	fmt.Printf("  Closing day: %d, Due day: %d\n", cc.ClosingDay, cc.DueDay)
 }
 
-func (p *Printer) PrintEntry(entry *entity.Entry) {
+func (p *Printer) PrintEntry(entry *entity.Entry, tags map[int64]*entity.Tag) {
 	fmt.Printf("Entry created (ID: %d)\n", entry.ID)
 	fmt.Printf("  Type: %s, Amount: %.2f %s\n", entry.Type, entry.Amount, entry.Currency)
 	fmt.Printf("  Date: %s\n", entry.RealizationDate.Format("02-01-2006"))
@@ -50,11 +57,11 @@ func (p *Printer) PrintEntry(entry *entity.Entry) {
 		fmt.Printf("  Description: %s\n", entry.Description)
 	}
 	if len(entry.TagIDs) > 0 {
-		fmt.Printf("  Tags: %s\n", int64SliceToString(entry.TagIDs))
+		fmt.Printf("  Tags: %s\n", tagNames(entry.TagIDs, tags))
 	}
 }
 
-func (p *Printer) PrintEntryWithCategory(entry *entity.Entry, category *entity.Category) {
+func (p *Printer) PrintEntryWithCategory(entry *entity.Entry, category *entity.Category, tags map[int64]*entity.Tag) {
 	fmt.Printf("Entry created (ID: %d)\n", entry.ID)
 	fmt.Printf("  Type: %s, Amount: %.2f %s\n", entry.Type, entry.Amount, entry.Currency)
 	fmt.Printf("  Date: %s\n", entry.RealizationDate.Format("02-01-2006"))
@@ -72,11 +79,11 @@ func (p *Printer) PrintEntryWithCategory(entry *entity.Entry, category *entity.C
 		fmt.Printf("  Description: %s\n", entry.Description)
 	}
 	if len(entry.TagIDs) > 0 {
-		fmt.Printf("  Tags: %s\n", int64SliceToString(entry.TagIDs))
+		fmt.Printf("  Tags: %s\n", tagNames(entry.TagIDs, tags))
 	}
 }
 
-func (p *Printer) PrintEntryMarkdown(entry *entity.Entry, category *entity.Category) {
+func (p *Printer) PrintEntryMarkdown(entry *entity.Entry, category *entity.Category, tags map[int64]*entity.Tag) {
 	emoji := ""
 	if category != nil && category.Emoji != nil {
 		emoji = *category.Emoji + " "
@@ -95,7 +102,7 @@ func (p *Printer) PrintEntryMarkdown(entry *entity.Entry, category *entity.Categ
 
 	tagStr := ""
 	if len(entry.TagIDs) > 0 {
-		tagStr = fmt.Sprintf(" `[%s]`", int64SliceToString(entry.TagIDs))
+		tagStr = fmt.Sprintf(" `[%s]`", tagNames(entry.TagIDs, tags))
 	}
 
 	catName := ""
@@ -119,7 +126,7 @@ func (p *Printer) PrintEntryMarkdown(entry *entity.Entry, category *entity.Categ
 	)
 }
 
-func (p *Printer) PrintReportMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, from, to *time.Time) {
+func (p *Printer) PrintReportMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, from, to *time.Time) {
 	fmt.Println("# Financial Report")
 	fmt.Println()
 
@@ -139,7 +146,7 @@ func (p *Printer) PrintReportMarkdown(entries []*entity.Entry, categories map[in
 
 	for _, entry := range entries {
 		cat := categories[*entry.CategoryID]
-		p.PrintEntryMarkdown(entry, cat)
+		p.PrintEntryMarkdown(entry, cat, tags)
 	}
 
 	fmt.Println()
@@ -207,7 +214,7 @@ func (p *Printer) FormatEntryDescription(entry *entity.Entry, totalInstallments 
 	return desc
 }
 
-func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[int64]*entity.Category, totalInstallments map[int64]int) {
+func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int) {
 	expenses := make([]*entity.Entry, 0)
 	incomes := make([]*entity.Entry, 0)
 
@@ -247,7 +254,7 @@ func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[int6
 
 			tagsStr := ""
 			if len(entry.TagIDs) > 0 {
-				tagsStr = int64SliceToString(entry.TagIDs)
+				tagsStr = tagNames(entry.TagIDs, tags)
 			}
 
 			fmt.Printf("%-12s | %-15s | %-12s | %s\n", dateStr, catName, amountStr, desc)
@@ -279,7 +286,7 @@ func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[int6
 
 			tagsStr := ""
 			if len(entry.TagIDs) > 0 {
-				tagsStr = int64SliceToString(entry.TagIDs)
+				tagsStr = tagNames(entry.TagIDs, tags)
 			}
 
 			fmt.Printf("%-12s | %-15s | %-12s | %s\n", dateStr, catName, amountStr, desc)
@@ -291,7 +298,7 @@ func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[int6
 	}
 }
 
-func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, totalInstallments map[int64]int) {
+func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int) {
 	expenses := make([]*entity.Entry, 0)
 	incomes := make([]*entity.Entry, 0)
 
@@ -336,7 +343,7 @@ func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[i
 
 			tagsStr := ""
 			if len(entry.TagIDs) > 0 {
-				tagsStr = fmt.Sprintf("`[%s]`", int64SliceToString(entry.TagIDs))
+				tagsStr = fmt.Sprintf("`[%s]`", tagNames(entry.TagIDs, tags))
 			}
 
 			fmt.Printf("| %s | %s | %s | %s %s |\n", dateStr, catName, amountStr, desc, tagsStr)
@@ -370,7 +377,7 @@ func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[i
 
 			tagsStr := ""
 			if len(entry.TagIDs) > 0 {
-				tagsStr = fmt.Sprintf("`[%s]`", int64SliceToString(entry.TagIDs))
+				tagsStr = fmt.Sprintf("`[%s]`", tagNames(entry.TagIDs, tags))
 			}
 
 			fmt.Printf("| %s | %s | %s | %s %s |\n", dateStr, catName, amountStr, desc, tagsStr)

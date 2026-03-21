@@ -264,8 +264,18 @@ var addExpenseCmd = &cobra.Command{
 			return
 		}
 
+		allTags, err := tagRepo.GetAll()
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+		tagsMap := make(map[int64]*entity.Tag)
+		for _, tag := range allTags {
+			tagsMap[tag.ID] = tag
+		}
+
 		for _, entry := range result.Entries {
-			printer.PrintEntryWithCategory(entry, result.Category)
+			printer.PrintEntryWithCategory(entry, result.Category, tagsMap)
 		}
 	},
 }
@@ -353,8 +363,18 @@ var addIncomeCmd = &cobra.Command{
 			return
 		}
 
+		allTags, err := tagRepo.GetAll()
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+		tagsMap := make(map[int64]*entity.Tag)
+		for _, tag := range allTags {
+			tagsMap[tag.ID] = tag
+		}
+
 		for _, entry := range result.Entries {
-			printer.PrintEntryWithCategory(entry, result.Category)
+			printer.PrintEntryWithCategory(entry, result.Category, tagsMap)
 		}
 	},
 }
@@ -535,9 +555,9 @@ var reportEntriesCmd = &cobra.Command{
 		}
 
 		if format == "md" {
-			printer.PrintEntriesMarkdown(entries, categoryMap, result.TotalInstallments)
+			printer.PrintEntriesMarkdown(entries, categoryMap, make(map[int64]*entity.Tag), result.TotalInstallments)
 		} else {
-			printer.PrintEntriesTable(entries, categoryMap, result.TotalInstallments)
+			printer.PrintEntriesTable(entries, categoryMap, make(map[int64]*entity.Tag), result.TotalInstallments)
 		}
 	},
 }

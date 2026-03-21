@@ -21,36 +21,67 @@ func NewCategoriesRepository(basePath string) *CategoriesRepository {
 	return &CategoriesRepository{basePath: basePath}
 }
 
-func (r *CategoriesRepository) filePath() string {
-	return filepath.Join(r.basePath, "categories.yaml")
+func (r *CategoriesRepository) filePath(accountName string) string {
+	return filepath.Join(r.basePath, accountName, "categories.yaml")
 }
 
-func (r *CategoriesRepository) metaPath() string {
-	return filepath.Join(r.basePath, "_meta.yaml")
+func (r *CategoriesRepository) metaPath(accountName string) string {
+	return filepath.Join(r.basePath, accountName, "_meta.yaml")
+}
+
+func (r *CategoriesRepository) getAccountName(accountID int64) (string, error) {
+	accountsPath := filepath.Join(r.basePath, "accounts.yaml")
+	data, err := Read[AccountsData](accountsPath)
+	if err != nil {
+		return "", err
+	}
+
+	for _, acc := range data.Accounts {
+		if acc.ID == accountID {
+			return acc.Name, nil
+		}
+	}
+	return "", fmt.Errorf("account not found: %d", accountID)
 }
 
 func (r *CategoriesRepository) Create(cat *entity.Category) (int64, error) {
-	if err := EnsureMetaFile(r.metaPath()); err != nil {
+	accountName, err := r.getAccountName(cat.AccountID)
+	if err != nil {
 		return 0, err
 	}
 
-	nextID, err := GetNextID(r.metaPath(), "categories")
+	metaP := r.metaPath(accountName)
+	if err := EnsureMetaFile(metaP); err != nil {
+		return 0, err
+	}
+
+	nextID, err := GetNextID(metaP, "categories")
 	if err != nil {
 		return 0, err
 	}
 
 	cat.ID = nextID
 
-	data, err := Read[CategoriesData](r.filePath())
-	if err != nil {
-		return 0, err
+	catPath := r.filePath(accountName)
+
+	if err := os.MkdirAll(filepath.Dir(catPath), 0755); err != nil {
+		return 0, fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	data := &CategoriesData{}
+	if _, err := os.Stat(catPath); err == nil {
+		readData, err := Read[CategoriesData](catPath)
+		if err != nil {
+			return 0, err
+		}
+		data = readData
 	}
 
 	yamlCat := Category{}
 	yamlCat.FromEntity(cat)
 	data.Categories = append(data.Categories, yamlCat)
 
-	if err := Write(r.filePath(), data); err != nil {
+	if err := Write(catPath, data); err != nil {
 		return 0, err
 	}
 
@@ -58,39 +89,71 @@ func (r *CategoriesRepository) Create(cat *entity.Category) (int64, error) {
 }
 
 func (r *CategoriesRepository) GetByID(id int64) (*entity.Category, error) {
-	data, err := Read[CategoriesData](r.filePath())
+	accountsPath := filepath.Join(r.basePath, "accounts.yaml")
+	accountsData, err := Read[AccountsData](accountsPath)
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range data.Categories {
-		if data.Categories[i].ID == id {
-			return data.Categories[i].ToEntity(), nil
+	for _, acc := range accountsData.Accounts {
+		catPath := r.filePath(acc.Name)
+		if _, err := os.Stat(catPath); os.IsNotExist(err) {
+			continue
+		}
+
+		data, err := Read[CategoriesData](catPath)
+		if err != nil {
+			continue
+		}
+
+		for i := range data.Categories {
+			if data.Categories[i].ID == id {
+				return data.Categories[i].ToEntity(), nil
+			}
 		}
 	}
 
 	return nil, nil
 }
 
-func (r *CategoriesRepository) GetAll() ([]*entity.Category, error) {
-	data, err := Read[CategoriesData](r.filePath())
+func (r *CategoriesRepository) GetAll(accountID int64) ([]*entity.Category, error) {
+	accountName, err := r.getAccountName(accountID)
 	if err != nil {
 		return nil, err
 	}
 
-	categories := make([]*entity.Category, len(data.Categories))
+	catPath := r.filePath(accountName)
+
+	data, err := Read[CategoriesData](catPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []*entity.Category{}, nil
+		}
+		return nil, err
+	}
+
+	categories := make([]*entity.Category, 0, len(data.Categories))
 	for i := range data.Categories {
-		categories[i] = data.Categories[i].ToEntity()
+		categories = append(categories, data.Categories[i].ToEntity())
 	}
 
 	return categories, nil
 }
 
-func (r *CategoriesRepository) GetByNameOrAlias(nameOrAlias string) (*entity.Category, error) {
+func (r *CategoriesRepository) GetByNameOrAlias(accountID int64, nameOrAlias string) (*entity.Category, error) {
+	accountName, err := r.getAccountName(accountID)
+	if err != nil {
+		return nil, err
+	}
+
 	nameOrAlias = entity.TrimLower(nameOrAlias)
 
-	data, err := Read[CategoriesData](r.filePath())
+	catPath := r.filePath(accountName)
+	data, err := Read[CategoriesData](catPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -108,7 +171,13 @@ func (r *CategoriesRepository) GetByNameOrAlias(nameOrAlias string) (*entity.Cat
 }
 
 func (r *CategoriesRepository) Update(cat *entity.Category) error {
-	data, err := Read[CategoriesData](r.filePath())
+	accountName, err := r.getAccountName(cat.AccountID)
+	if err != nil {
+		return err
+	}
+
+	catPath := r.filePath(accountName)
+	data, err := Read[CategoriesData](catPath)
 	if err != nil {
 		return err
 	}
@@ -126,31 +195,51 @@ func (r *CategoriesRepository) Update(cat *entity.Category) error {
 		return fmt.Errorf("category not found: %d", cat.ID)
 	}
 
-	return Write(r.filePath(), data)
+	return Write(catPath, data)
 }
 
 func (r *CategoriesRepository) Delete(id int64) error {
-	data, err := Read[CategoriesData](r.filePath())
+	accountsPath := filepath.Join(r.basePath, "accounts.yaml")
+	accountsData, err := Read[AccountsData](accountsPath)
 	if err != nil {
 		return err
 	}
 
-	newCategories := make([]Category, 0)
-	for _, cat := range data.Categories {
-		if cat.ID != id {
-			newCategories = append(newCategories, cat)
+	for _, acc := range accountsData.Accounts {
+		catPath := r.filePath(acc.Name)
+		if _, err := os.Stat(catPath); os.IsNotExist(err) {
+			continue
+		}
+
+		data, err := Read[CategoriesData](catPath)
+		if err != nil {
+			continue
+		}
+
+		found := false
+		for _, cat := range data.Categories {
+			if cat.ID == id {
+				found = true
+				break
+			}
+		}
+
+		if found {
+			newCategories := make([]Category, 0)
+			for _, cat := range data.Categories {
+				if cat.ID != id {
+					newCategories = append(newCategories, cat)
+				}
+			}
+			data.Categories = newCategories
+			return Write(catPath, data)
 		}
 	}
 
-	data.Categories = newCategories
-	return Write(r.filePath(), data)
+	return fmt.Errorf("category not found: %d", id)
 }
 
 func (r *CategoriesRepository) EnsureInitialized() error {
-	path := r.filePath()
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return Write(path, CategoriesData{Categories: []Category{}})
-	}
 	return nil
 }
 

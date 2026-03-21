@@ -70,13 +70,30 @@ var addAccountCmd = &cobra.Command{
 }
 
 var addCategoryCmd = &cobra.Command{
-	Use:   "category <name> --type <inc|exp> [--alias <alias>] [--emoji <emoji>]",
+	Use:   "category <name> --account <account> --type <inc|exp> [--alias <alias>] [--emoji <emoji>]",
 	Short: "Add a new category",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		factory, err := getFactory()
 		if err != nil {
 			printer.PrintError(err.Error())
+			return
+		}
+
+		accountStr, _ := cmd.Flags().GetString("account")
+		if accountStr == "" {
+			printer.PrintError("--account is required")
+			return
+		}
+
+		accountRepo := factory.NewAccountsRepository()
+		account, err := accountRepo.GetByName(accountStr)
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+		if account == nil {
+			printer.PrintError("account not found: " + accountStr)
 			return
 		}
 
@@ -88,10 +105,11 @@ var addCategoryCmd = &cobra.Command{
 		uc := usecase.NewAddCategory(repo)
 
 		result, err := uc.Execute(usecase.AddCategoryInput{
-			Name:  args[0],
-			Type:  entity.CategoryType(catType),
-			Alias: alias,
-			Emoji: emoji,
+			AccountID: account.ID,
+			Name:      args[0],
+			Type:      entity.CategoryType(catType),
+			Alias:     alias,
+			Emoji:     emoji,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
@@ -371,15 +389,16 @@ var reportEntriesCmd = &cobra.Command{
 			return
 		}
 
-		categories, err := categoryRepo.GetAll()
-		if err != nil {
-			printer.PrintError(err.Error())
-			return
-		}
-
 		categoryMap := make(map[int64]*entity.Category)
-		for _, cat := range categories {
-			categoryMap[cat.ID] = cat
+		if accountID != nil {
+			categories, err := categoryRepo.GetAll(*accountID)
+			if err != nil {
+				printer.PrintError(err.Error())
+				return
+			}
+			for _, cat := range categories {
+				categoryMap[cat.ID] = cat
+			}
 		}
 
 		entries := make([]*entity.Entry, 0)
@@ -514,6 +533,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&dbFlag, "db", "", "database name (default or custom)")
 
+	addCategoryCmd.Flags().String("account", "", "account name (required)")
 	addCategoryCmd.Flags().StringP("type", "t", "", "category type (inc or exp)")
 	addCategoryCmd.Flags().String("alias", "", "category alias")
 	addCategoryCmd.Flags().String("emoji", "", "category emoji")

@@ -59,7 +59,7 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 	var categoryID *int64
 	var category *entity.Category
 	if input.CategoryNameOrAlias != "" {
-		cat, err := uc.categoryRepo.GetByNameOrAlias(input.CategoryNameOrAlias)
+		cat, err := uc.categoryRepo.GetByNameOrAlias(input.AccountID, input.CategoryNameOrAlias)
 		if err != nil {
 			return nil, fmt.Errorf("failed to find category: %w", err)
 		}

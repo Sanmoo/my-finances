@@ -69,14 +69,16 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 		return nil, fmt.Errorf("failed to get entries: %w", err)
 	}
 
-	categories, err := uc.categoryRepo.GetAll()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get categories: %w", err)
-	}
-
 	categoryMap := make(map[int64]*entity.Category)
-	for _, cat := range categories {
-		categoryMap[cat.ID] = cat
+
+	if input.AccountID != nil {
+		categories, err := uc.categoryRepo.GetAll(*input.AccountID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get categories: %w", err)
+		}
+		for _, cat := range categories {
+			categoryMap[cat.ID] = cat
+		}
 	}
 
 	totalInstallments := uc.calculateTotalInstallments(entries)

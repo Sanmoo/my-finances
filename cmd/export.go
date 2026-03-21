@@ -138,16 +138,29 @@ func exportFromSQLiteToYAML(sqliteFactory, yamlFactory *persistence.RepositoryFa
 	}
 
 	fmt.Println("Exporting categories...")
-	categories, err := sqliteCategories.GetAll()
-	if err != nil {
-		return fmt.Errorf("failed to get categories: %w", err)
+	var categories []*entity.Category
+	if accountStr != "" {
+		acc, err := sqliteAccounts.GetByName(accountStr)
+		if err != nil {
+			return fmt.Errorf("failed to get account: %w", err)
+		}
+		if acc == nil {
+			return fmt.Errorf("account not found: %s", accountStr)
+		}
+		categories, err = sqliteCategories.GetAll(acc.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get categories: %w", err)
+		}
+	} else {
+		return fmt.Errorf("account is required for category export in per-account mode")
 	}
 	for _, cat := range categories {
 		newCat := &entity.Category{
-			Name:  cat.Name,
-			Type:  cat.Type,
-			Alias: cat.Alias,
-			Emoji: cat.Emoji,
+			AccountID: cat.AccountID,
+			Name:      cat.Name,
+			Type:      cat.Type,
+			Alias:     cat.Alias,
+			Emoji:     cat.Emoji,
 		}
 		_, err := yamlCategories.Create(newCat)
 		if err != nil {

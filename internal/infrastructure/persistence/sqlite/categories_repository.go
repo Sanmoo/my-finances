@@ -16,7 +16,7 @@ func NewCategoriesRepository(db *DB) *CategoriesRepository {
 }
 
 func (r *CategoriesRepository) Create(cat *entity.Category) (int64, error) {
-	query := `INSERT INTO categories (name, alias, emoji, type) VALUES (?, ?, ?, ?)`
+	query := `INSERT INTO categories (account_id, name, alias, emoji, type) VALUES (?, ?, ?, ?, ?)`
 
 	var alias, emoji interface{}
 	if cat.Alias != nil {
@@ -26,7 +26,7 @@ func (r *CategoriesRepository) Create(cat *entity.Category) (int64, error) {
 		emoji = *cat.Emoji
 	}
 
-	result, err := r.db.Exec(query, cat.Name, alias, emoji, cat.Type)
+	result, err := r.db.Exec(query, cat.AccountID, cat.Name, alias, emoji, cat.Type)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create category: %w", err)
 	}
@@ -40,12 +40,12 @@ func (r *CategoriesRepository) Create(cat *entity.Category) (int64, error) {
 }
 
 func (r *CategoriesRepository) GetByID(id int64) (*entity.Category, error) {
-	query := `SELECT id, name, alias, emoji, type FROM categories WHERE id = ?`
+	query := `SELECT id, account_id, name, alias, emoji, type FROM categories WHERE id = ?`
 
 	var cat entity.Category
 	var alias, emoji sql.NullString
 
-	err := r.db.QueryRow(query, id).Scan(&cat.ID, &cat.Name, &alias, &emoji, &cat.Type)
+	err := r.db.QueryRow(query, id).Scan(&cat.ID, &cat.AccountID, &cat.Name, &alias, &emoji, &cat.Type)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -63,10 +63,10 @@ func (r *CategoriesRepository) GetByID(id int64) (*entity.Category, error) {
 	return &cat, nil
 }
 
-func (r *CategoriesRepository) GetAll() ([]*entity.Category, error) {
-	query := `SELECT id, name, alias, emoji, type FROM categories ORDER BY name`
+func (r *CategoriesRepository) GetAll(accountID int64) ([]*entity.Category, error) {
+	query := `SELECT id, account_id, name, alias, emoji, type FROM categories WHERE account_id = ? ORDER BY name`
 
-	rows, err := r.db.Query(query)
+	rows, err := r.db.Query(query, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get categories: %w", err)
 	}
@@ -77,7 +77,7 @@ func (r *CategoriesRepository) GetAll() ([]*entity.Category, error) {
 		var cat entity.Category
 		var alias, emoji sql.NullString
 
-		if err := rows.Scan(&cat.ID, &cat.Name, &alias, &emoji, &cat.Type); err != nil {
+		if err := rows.Scan(&cat.ID, &cat.AccountID, &cat.Name, &alias, &emoji, &cat.Type); err != nil {
 			return nil, fmt.Errorf("failed to scan category: %w", err)
 		}
 
@@ -94,15 +94,15 @@ func (r *CategoriesRepository) GetAll() ([]*entity.Category, error) {
 	return categories, nil
 }
 
-func (r *CategoriesRepository) GetByNameOrAlias(nameOrAlias string) (*entity.Category, error) {
+func (r *CategoriesRepository) GetByNameOrAlias(accountID int64, nameOrAlias string) (*entity.Category, error) {
 	nameOrAlias = entity.TrimLower(nameOrAlias)
 
-	query := `SELECT id, name, alias, emoji, type FROM categories WHERE name = ? OR alias = ?`
+	query := `SELECT id, account_id, name, alias, emoji, type FROM categories WHERE account_id = ? AND (name = ? OR alias = ?)`
 
 	var cat entity.Category
 	var alias, emoji sql.NullString
 
-	err := r.db.QueryRow(query, nameOrAlias, nameOrAlias).Scan(&cat.ID, &cat.Name, &alias, &emoji, &cat.Type)
+	err := r.db.QueryRow(query, accountID, nameOrAlias, nameOrAlias).Scan(&cat.ID, &cat.AccountID, &cat.Name, &alias, &emoji, &cat.Type)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

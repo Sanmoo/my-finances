@@ -8,25 +8,28 @@ import (
 type Account entity.Account
 
 type Category struct {
-	ID    int64   `yaml:"id"`
-	Name  string  `yaml:"name"`
-	Alias *string `yaml:"alias,omitempty"`
-	Emoji *string `yaml:"emoji,omitempty"`
-	Type  string  `yaml:"type"`
+	ID        int64   `yaml:"id"`
+	AccountID int64   `yaml:"account_id"`
+	Name      string  `yaml:"name"`
+	Alias     *string `yaml:"alias,omitempty"`
+	Emoji     *string `yaml:"emoji,omitempty"`
+	Type      string  `yaml:"type"`
 }
 
 func (c *Category) ToEntity() *entity.Category {
 	return &entity.Category{
-		ID:    c.ID,
-		Name:  c.Name,
-		Alias: c.Alias,
-		Emoji: c.Emoji,
-		Type:  entity.CategoryType(c.Type),
+		ID:        c.ID,
+		AccountID: c.AccountID,
+		Name:      c.Name,
+		Alias:     c.Alias,
+		Emoji:     c.Emoji,
+		Type:      entity.CategoryType(c.Type),
 	}
 }
 
 func (c *Category) FromEntity(ec *entity.Category) {
 	c.ID = ec.ID
+	c.AccountID = ec.AccountID
 	c.Name = ec.Name
 	c.Alias = ec.Alias
 	c.Emoji = ec.Emoji

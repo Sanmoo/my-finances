@@ -25,13 +25,13 @@ func (m *MockCategoriesRepository) GetByID(id int64) (*entity.Category, error) {
 	return args.Get(0).(*entity.Category), args.Error(1)
 }
 
-func (m *MockCategoriesRepository) GetAll() ([]*entity.Category, error) {
-	args := m.Called()
+func (m *MockCategoriesRepository) GetAll(accountID int64) ([]*entity.Category, error) {
+	args := m.Called(accountID)
 	return args.Get(0).([]*entity.Category), args.Error(1)
 }
 
-func (m *MockCategoriesRepository) GetByNameOrAlias(nameOrAlias string) (*entity.Category, error) {
-	args := m.Called(nameOrAlias)
+func (m *MockCategoriesRepository) GetByNameOrAlias(accountID int64, nameOrAlias string) (*entity.Category, error) {
+	args := m.Called(accountID, nameOrAlias)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -56,10 +56,11 @@ func TestAddCategory_Execute(t *testing.T) {
 		mockRepo.On("Create", mock.AnythingOfType("*entity.Category")).Return(int64(1), nil)
 
 		result, err := uc.Execute(AddCategoryInput{
-			Name:  "Food",
-			Type:  entity.CategoryTypeExpense,
-			Alias: "food",
-			Emoji: "🍔",
+			AccountID: 1,
+			Name:      "Food",
+			Type:      entity.CategoryTypeExpense,
+			Alias:     "food",
+			Emoji:     "🍔",
 		})
 
 		assert.NoError(t, err)
@@ -79,8 +80,9 @@ func TestAddCategory_Execute(t *testing.T) {
 		uc := NewAddCategory(mockRepo)
 
 		result, err := uc.Execute(AddCategoryInput{
-			Name: "Test",
-			Type: "invalid",
+			AccountID: 1,
+			Name:      "Test",
+			Type:      "invalid",
 		})
 
 		assert.Error(t, err)

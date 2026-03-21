@@ -44,12 +44,14 @@ type EntryWithCategory struct {
 type Report struct {
 	entryRepo    port.EntriesRepository
 	categoryRepo port.CategoriesRepository
+	accountRepo  port.AccountsRepository
 }
 
-func NewReport(entryRepo port.EntriesRepository, categoryRepo port.CategoriesRepository) *Report {
+func NewReport(entryRepo port.EntriesRepository, categoryRepo port.CategoriesRepository, accountRepo port.AccountsRepository) *Report {
 	return &Report{
 		entryRepo:    entryRepo,
 		categoryRepo: categoryRepo,
+		accountRepo:  accountRepo,
 	}
 }
 
@@ -78,6 +80,20 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 		}
 		for _, cat := range categories {
 			categoryMap[cat.ID] = cat
+		}
+	} else {
+		accounts, err := uc.accountRepo.GetAll()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get accounts: %w", err)
+		}
+		for _, acc := range accounts {
+			categories, err := uc.categoryRepo.GetAll(acc.ID)
+			if err != nil {
+				continue
+			}
+			for _, cat := range categories {
+				categoryMap[cat.ID] = cat
+			}
 		}
 	}
 

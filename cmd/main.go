@@ -374,7 +374,7 @@ var reportEntriesCmd = &cobra.Command{
 			accountID = &account.ID
 		}
 
-		report := usecase.NewReport(entryRepo, categoryRepo)
+		report := usecase.NewReport(entryRepo, categoryRepo, accountRepo)
 
 		result, err := report.Execute(usecase.ReportInput{
 			Format:           format,
@@ -398,6 +398,21 @@ var reportEntriesCmd = &cobra.Command{
 			}
 			for _, cat := range categories {
 				categoryMap[cat.ID] = cat
+			}
+		} else {
+			accounts, err := accountRepo.GetAll()
+			if err != nil {
+				printer.PrintError(err.Error())
+				return
+			}
+			for _, acc := range accounts {
+				categories, err := categoryRepo.GetAll(acc.ID)
+				if err != nil {
+					continue
+				}
+				for _, cat := range categories {
+					categoryMap[cat.ID] = cat
+				}
 			}
 		}
 

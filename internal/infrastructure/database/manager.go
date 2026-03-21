@@ -91,7 +91,7 @@ func (m *Manager) createDatabase(dbPath string) error {
 
 	absMigrationsPath, _ := filepath.Abs("migrations")
 	mm := persistence.NewMigrationManager(db.DB, "file://"+absMigrationsPath)
-	if err := mm.Up(); err != nil {
+	if err := mm.Up(dbPath); err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 

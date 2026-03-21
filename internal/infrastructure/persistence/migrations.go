@@ -6,6 +6,8 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "modernc.org/sqlite"
 )
 
 type MigrationManager struct {
@@ -20,8 +22,8 @@ func NewMigrationManager(db *sql.DB, migrationsPath string) *MigrationManager {
 	}
 }
 
-func (m *MigrationManager) Up() error {
-	dbURL := "file://myfin.db"
+func (m *MigrationManager) Up(dbPath string) error {
+	dbURL := "sqlite://" + dbPath
 
 	mi, err := migrate.New(m.migrationsPath, dbURL)
 	if err != nil {
@@ -36,8 +38,8 @@ func (m *MigrationManager) Up() error {
 	return nil
 }
 
-func (m *MigrationManager) Down(steps int) error {
-	dbURL := "file://myfin.db"
+func (m *MigrationManager) Down(steps int, dbPath string) error {
+	dbURL := "sqlite://" + dbPath
 
 	mi, err := migrate.New(m.migrationsPath, dbURL)
 	if err != nil {
@@ -52,8 +54,8 @@ func (m *MigrationManager) Down(steps int) error {
 	return nil
 }
 
-func (m *MigrationManager) Version() (uint, bool, error) {
-	dbURL := "file://myfin.db"
+func (m *MigrationManager) Version(dbPath string) (uint, bool, error) {
+	dbURL := "sqlite://" + dbPath
 
 	mi, err := migrate.New(m.migrationsPath, dbURL)
 	if err != nil {
@@ -69,7 +71,7 @@ func (m *MigrationManager) Version() (uint, bool, error) {
 	return version, dirty, nil
 }
 
-func RunMigrations(db *sql.DB, migrationsPath string) error {
+func RunMigrations(db *sql.DB, migrationsPath, dbPath string) error {
 	mm := NewMigrationManager(db, migrationsPath)
-	return mm.Up()
+	return mm.Up(dbPath)
 }

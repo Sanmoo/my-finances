@@ -7,9 +7,9 @@ require (
 	github.com/knadh/koanf/parsers/yaml v1.1.0
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/v2 v2.3.4
-	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
+	modernc.org/sqlite v1.18.1
 )
 
 require (
@@ -40,7 +40,6 @@ require (
 	modernc.org/mathutil v1.5.0 // indirect
 	modernc.org/memory v1.2.1 // indirect
 	modernc.org/opt v0.1.3 // indirect
-	modernc.org/sqlite v1.18.1 // indirect
 	modernc.org/strutil v1.1.3 // indirect
 	modernc.org/token v1.0.0 // indirect
 )

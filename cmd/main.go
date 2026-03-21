@@ -70,8 +70,9 @@ var addAccountCmd = &cobra.Command{
 }
 
 var addCategoryCmd = &cobra.Command{
-	Use:   "category --type <inc|exp> --name <name> [--alias <alias>] [--emoji <emoji>]",
+	Use:   "category <name> --type <inc|exp> [--alias <alias>] [--emoji <emoji>]",
 	Short: "Add a new category",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		factory, err := getFactory()
 		if err != nil {
@@ -80,20 +81,14 @@ var addCategoryCmd = &cobra.Command{
 		}
 
 		catType, _ := cmd.Flags().GetString("type")
-		name, _ := cmd.Flags().GetString("name")
 		alias, _ := cmd.Flags().GetString("alias")
 		emoji, _ := cmd.Flags().GetString("emoji")
-
-		if name == "" {
-			printer.PrintError("name is required")
-			return
-		}
 
 		repo := factory.NewCategoriesRepository()
 		uc := usecase.NewAddCategory(repo)
 
 		result, err := uc.Execute(usecase.AddCategoryInput{
-			Name:  name,
+			Name:  args[0],
 			Type:  entity.CategoryType(catType),
 			Alias: alias,
 			Emoji: emoji,
@@ -536,7 +531,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&dbFlag, "db", "", "database name (default or custom)")
 
 	addCategoryCmd.Flags().StringP("type", "t", "", "category type (inc or exp)")
-	addCategoryCmd.Flags().StringP("name", "n", "", "category name")
 	addCategoryCmd.Flags().String("alias", "", "category alias")
 	addCategoryCmd.Flags().String("emoji", "", "category emoji")
 

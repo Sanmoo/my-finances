@@ -44,7 +44,7 @@ O arquivo é criado automaticamente na primeira configuração.
 
 ## Uso Rápido
 
-### Criar uma conta bancária
+### Criar uma conta
 
 ```bash
 myfin add account checking
@@ -106,7 +106,7 @@ Use `myfin add --help` e `myfin add <comando> --help` para ver todas as flags di
 
 | Comando | Descrição |
 |---------|-----------|
-| `myfin add account <nome>` | Cria uma conta bancária |
+| `myfin add account <nome>` | Cria uma conta |
 | `myfin add category` | Cria uma categoria |
 | `myfin add credit-card <nome>` | Cria um cartão de crédito |
 | `myfin add expense [valor]` | Adiciona uma despesa |

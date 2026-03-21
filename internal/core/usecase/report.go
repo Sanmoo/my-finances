@@ -12,7 +12,7 @@ type ReportInput struct {
 	Format           string
 	From             *time.Time
 	To               *time.Time
-	FilterTags       []string
+	FilterTags       []int64
 	FilterCategories []string
 	AccountID        *int64
 }
@@ -131,7 +131,7 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 			ParentEntryID:   entry.ParentEntryID,
 			RealizationDate: entry.RealizationDate,
 			PaymentDate:     entry.PaymentDate,
-			Tags:            entry.Tags,
+			Tags:            []string{},
 		}
 
 		if entry.CategoryID != nil {

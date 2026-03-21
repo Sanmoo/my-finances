@@ -12,8 +12,8 @@ type EntriesRepository interface {
 	GetAll(filters *EntryFilters) ([]*entity.Entry, error)
 	Update(entry *entity.Entry) error
 	Delete(id int64) error
-	AddTag(entryID int64, tag string) error
-	RemoveTag(entryID int64, tag string) error
+	AddTag(entryID int64, tagID int64) error
+	RemoveTag(entryID int64, tagID int64) error
 }
 
 type EntryFilters struct {
@@ -21,7 +21,7 @@ type EntryFilters struct {
 	ToDate       *time.Time
 	Type         *entity.EntryType
 	CategoryIDs  []int64
-	Tags         []string
+	Tags         []int64
 	CreditCardID *int64
 	AccountID    *int64
 }

@@ -17,7 +17,7 @@ type AddEntryInput struct {
 	Description         string
 	CategoryNameOrAlias string
 	CreditCard          *entity.CreditCard
-	Tags                []string
+	TagIDs              []int64
 	Times               int
 	Date                time.Time
 	AccountID           int64
@@ -31,17 +31,20 @@ type AddEntryOutput struct {
 type AddEntry struct {
 	entryRepo    port.EntriesRepository
 	categoryRepo port.CategoriesRepository
+	tagRepo      port.TagsRepository
 	ccRepo       port.CreditCardsRepository
 }
 
 func NewAddEntry(
 	entryRepo port.EntriesRepository,
 	categoryRepo port.CategoriesRepository,
+	tagRepo port.TagsRepository,
 	ccRepo port.CreditCardsRepository,
 ) *AddEntry {
 	return &AddEntry{
 		entryRepo:    entryRepo,
 		categoryRepo: categoryRepo,
+		tagRepo:      tagRepo,
 		ccRepo:       ccRepo,
 	}
 }
@@ -68,6 +71,17 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 		}
 		categoryID = &cat.ID
 		category = cat
+	}
+
+	// Validate all tag IDs exist
+	for _, tagID := range input.TagIDs {
+		tag, err := uc.tagRepo.GetByID(tagID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate tag ID %d: %w", tagID, err)
+		}
+		if tag == nil {
+			return nil, fmt.Errorf("tag not registered: %d. Run: myfin add tag <name>", tagID)
+		}
 	}
 
 	entries := make([]*entity.Entry, 0, input.Times)
@@ -117,8 +131,8 @@ func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.T
 		opts = append(opts, entity.WithCreditCard(input.CreditCard))
 	}
 
-	if len(input.Tags) > 0 {
-		opts = append(opts, entity.WithTags(input.Tags))
+	if len(input.TagIDs) > 0 {
+		opts = append(opts, entity.WithTagIDs(input.TagIDs))
 	}
 
 	opts = append(opts, entity.WithAccountID(input.AccountID))

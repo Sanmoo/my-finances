@@ -75,6 +75,19 @@ func (f *RepositoryFactory) NewEntriesRepository() port.EntriesRepository {
 	}
 }
 
+func (f *RepositoryFactory) NewTagsRepository() port.TagsRepository {
+	switch f.driver {
+	case config.DriverYAML:
+		repo := yaml.NewTagsRepository(f.basePath)
+		repo.EnsureInitialized()
+		return repo.Port()
+	case config.DriverSQLite:
+		fallthrough
+	default:
+		return sqlite.NewTagsRepository(&sqlite.DB{DB: f.db})
+	}
+}
+
 func (f *RepositoryFactory) Driver() string {
 	return f.driver
 }

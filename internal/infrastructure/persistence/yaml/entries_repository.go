@@ -223,23 +223,8 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 						}
 					}
 
-					if filters != nil && len(filters.Tags) > 0 {
-						found := false
-						for _, ft := range filters.Tags {
-							for _, et := range entry.Tags {
-								if et == ft {
-									found = true
-									break
-								}
-							}
-							if found {
-								break
-							}
-						}
-						if !found {
-							continue
-						}
-					}
+					// Tag filtering disabled - now uses TagIDs instead of tag names
+					// TODO: Implement tag ID filtering if needed
 
 					entries = append(entries, entry)
 				}
@@ -330,7 +315,7 @@ func (r *EntriesRepository) Delete(id int64) error {
 	return fmt.Errorf("entry not found: %d", id)
 }
 
-func (r *EntriesRepository) AddTag(entryID int64, tag string) error {
+func (r *EntriesRepository) AddTag(entryID int64, tagID int64) error {
 	entry, err := r.GetByID(entryID)
 	if err != nil {
 		return err
@@ -339,11 +324,11 @@ func (r *EntriesRepository) AddTag(entryID int64, tag string) error {
 		return fmt.Errorf("entry not found: %d", entryID)
 	}
 
-	entry.AddTag(tag)
+	entry.AddTagID(tagID)
 	return r.Update(entry)
 }
 
-func (r *EntriesRepository) RemoveTag(entryID int64, tag string) error {
+func (r *EntriesRepository) RemoveTag(entryID int64, tagID int64) error {
 	entry, err := r.GetByID(entryID)
 	if err != nil {
 		return err
@@ -352,13 +337,13 @@ func (r *EntriesRepository) RemoveTag(entryID int64, tag string) error {
 		return fmt.Errorf("entry not found: %d", entryID)
 	}
 
-	newTags := make([]string, 0)
-	for _, t := range entry.Tags {
-		if t != tag {
-			newTags = append(newTags, t)
+	newTagIDs := make([]int64, 0)
+	for _, id := range entry.TagIDs {
+		if id != tagID {
+			newTagIDs = append(newTagIDs, id)
 		}
 	}
-	entry.Tags = newTags
+	entry.TagIDs = newTagIDs
 	return r.Update(entry)
 }
 

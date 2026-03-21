@@ -42,22 +42,53 @@ func (m *MockEntriesRepository) Delete(id int64) error {
 	return args.Error(0)
 }
 
-func (m *MockEntriesRepository) AddTag(entryID int64, tag string) error {
-	args := m.Called(entryID, tag)
+func (m *MockEntriesRepository) AddTag(entryID int64, tagID int64) error {
+	args := m.Called(entryID, tagID)
 	return args.Error(0)
 }
 
-func (m *MockEntriesRepository) RemoveTag(entryID int64, tag string) error {
-	args := m.Called(entryID, tag)
+func (m *MockEntriesRepository) RemoveTag(entryID int64, tagID int64) error {
+	args := m.Called(entryID, tagID)
 	return args.Error(0)
+}
+
+type MockTagsRepository struct {
+	mock.Mock
+}
+
+func (m *MockTagsRepository) Create(tag *entity.Tag) (int64, error) {
+	args := m.Called(tag)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockTagsRepository) GetByID(id int64) (*entity.Tag, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.Tag), args.Error(1)
+}
+
+func (m *MockTagsRepository) GetByName(name string) (*entity.Tag, error) {
+	args := m.Called(name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.Tag), args.Error(1)
+}
+
+func (m *MockTagsRepository) GetAll() ([]*entity.Tag, error) {
+	args := m.Called()
+	return args.Get(0).([]*entity.Tag), args.Error(1)
 }
 
 func TestAddEntry_Execute(t *testing.T) {
 	t.Run("success with simple amount", func(t *testing.T) {
 		mockEntryRepo := new(MockEntriesRepository)
 		mockCategoryRepo := new(MockCategoriesRepository)
+		mockTagRepo := new(MockTagsRepository)
 		mockCCRepo := new(MockCreditCardsRepository)
-		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockCCRepo)
+		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockTagRepo, mockCCRepo)
 
 		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry")).Return(int64(1), nil)
 
@@ -82,8 +113,9 @@ func TestAddEntry_Execute(t *testing.T) {
 	t.Run("success with math expression", func(t *testing.T) {
 		mockEntryRepo := new(MockEntriesRepository)
 		mockCategoryRepo := new(MockCategoriesRepository)
+		mockTagRepo := new(MockTagsRepository)
 		mockCCRepo := new(MockCreditCardsRepository)
-		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockCCRepo)
+		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockTagRepo, mockCCRepo)
 
 		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry")).Return(int64(1), nil)
 
@@ -105,8 +137,9 @@ func TestAddEntry_Execute(t *testing.T) {
 	t.Run("success with multiple installments", func(t *testing.T) {
 		mockEntryRepo := new(MockEntriesRepository)
 		mockCategoryRepo := new(MockCategoriesRepository)
+		mockTagRepo := new(MockTagsRepository)
 		mockCCRepo := new(MockCreditCardsRepository)
-		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockCCRepo)
+		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockTagRepo, mockCCRepo)
 
 		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry")).Return(int64(1), nil).Once()
 		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry")).Return(int64(2), nil).Once()
@@ -131,8 +164,9 @@ func TestAddEntry_Execute(t *testing.T) {
 	t.Run("invalid amount expression", func(t *testing.T) {
 		mockEntryRepo := new(MockEntriesRepository)
 		mockCategoryRepo := new(MockCategoriesRepository)
+		mockTagRepo := new(MockTagsRepository)
 		mockCCRepo := new(MockCreditCardsRepository)
-		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockCCRepo)
+		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockTagRepo, mockCCRepo)
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{

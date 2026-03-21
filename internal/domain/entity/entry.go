@@ -35,7 +35,7 @@ type Entry struct {
 	RealizationDate time.Time
 	PaymentDate     *time.Time
 	CreatedAt       time.Time
-	Tags            []string
+	TagIDs          []int64
 }
 
 func NewEntry(entryType EntryType, amount float64, currency string, realizationDate time.Time, opts ...EntryOption) (*Entry, error) {
@@ -58,7 +58,7 @@ func NewEntry(entryType EntryType, amount float64, currency string, realizationD
 		Currency:        strings.ToUpper(currency),
 		RealizationDate: realizationDate,
 		CreatedAt:       time.Now().UTC(),
-		Tags:            []string{},
+		TagIDs:          []int64{},
 	}
 
 	for _, opt := range opts {
@@ -90,9 +90,9 @@ func WithCreditCard(cc *CreditCard) EntryOption {
 	}
 }
 
-func WithTags(tags []string) EntryOption {
+func WithTagIDs(tagIDs []int64) EntryOption {
 	return func(e *Entry) {
-		e.Tags = tags
+		e.TagIDs = tagIDs
 	}
 }
 
@@ -109,13 +109,13 @@ func WithInstallment(installment int, parentEntryID *int64) EntryOption {
 	}
 }
 
-func (e *Entry) AddTag(tag string) {
-	for _, t := range e.Tags {
-		if t == tag {
+func (e *Entry) AddTagID(tagID int64) {
+	for _, id := range e.TagIDs {
+		if id == tagID {
 			return
 		}
 	}
-	e.Tags = append(e.Tags, tag)
+	e.TagIDs = append(e.TagIDs, tagID)
 }
 
 func (e *Entry) IsExpense() bool {

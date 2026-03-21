@@ -61,9 +61,9 @@ func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
 		return 0, fmt.Errorf("failed to get last insert id: %w", err)
 	}
 
-	for _, tag := range entry.Tags {
-		if err := r.AddTag(id, tag); err != nil {
-			return 0, fmt.Errorf("failed to add tag: %w", err)
+	for _, tagID := range entry.TagIDs {
+		if err := r.addTagID(id, tagID); err != nil {
+			return 0, fmt.Errorf("failed to add tag ID: %w", err)
 		}
 	}
 
@@ -125,11 +125,11 @@ func (r *EntriesRepository) GetByID(id int64) (*entity.Entry, error) {
 		entry.CreatedAt, _ = time.Parse("2006-01-02", createdAt)
 	}
 
-	tags, err := r.getTagsByEntryID(entry.ID)
+	tagIDs, err := r.getTagIDsByEntryID(entry.ID)
 	if err != nil {
 		return nil, err
 	}
-	entry.Tags = tags
+	entry.TagIDs = tagIDs
 
 	return &entry, nil
 }
@@ -227,28 +227,24 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 			entry.CreatedAt, _ = time.Parse("2006-01-02", createdAt)
 		}
 
-		tags, err := r.getTagsByEntryID(entry.ID)
+		tagIDs, err := r.getTagIDsByEntryID(entry.ID)
 		if err != nil {
 			return nil, err
 		}
-		entry.Tags = tags
+		entry.TagIDs = tagIDs
 
 		entries = append(entries, &entry)
-	}
-
-	if filters != nil && len(filters.Tags) > 0 {
-		entries = r.filterByTags(entries, filters.Tags)
 	}
 
 	return entries, nil
 }
 
-func (r *EntriesRepository) filterByTags(entries []*entity.Entry, filterTags []string) []*entity.Entry {
+func (r *EntriesRepository) filterByTagIDs(entries []*entity.Entry, filterTagIDs []int64) []*entity.Entry {
 	var filtered []*entity.Entry
 	for _, entry := range entries {
-		for _, ft := range filterTags {
-			for _, et := range entry.Tags {
-				if et == ft {
+		for _, ftID := range filterTagIDs {
+			for _, etID := range entry.TagIDs {
+				if etID == ftID {
 					filtered = append(filtered, entry)
 					break
 				}
@@ -300,9 +296,9 @@ func (r *EntriesRepository) Update(entry *entity.Entry) error {
 }
 
 func (r *EntriesRepository) Delete(id int64) error {
-	_, err := r.db.Exec(`DELETE FROM entry_tags WHERE entry_id = ?`, id)
+	_, err := r.db.Exec(`DELETE FROM entry_tag_ids WHERE entry_id = ?`, id)
 	if err != nil {
-		return fmt.Errorf("failed to delete entry tags: %w", err)
+		return fmt.Errorf("failed to delete entry tag IDs: %w", err)
 	}
 
 	_, err = r.db.Exec(`DELETE FROM entries WHERE id = ?`, id)
@@ -313,41 +309,45 @@ func (r *EntriesRepository) Delete(id int64) error {
 	return nil
 }
 
-func (r *EntriesRepository) AddTag(entryID int64, tag string) error {
-	query := `INSERT OR IGNORE INTO entry_tags (entry_id, tag) VALUES (?, ?)`
-	_, err := r.db.Exec(query, entryID, tag)
+func (r *EntriesRepository) addTagID(entryID int64, tagID int64) error {
+	query := `INSERT OR IGNORE INTO entry_tag_ids (entry_id, tag_id) VALUES (?, ?)`
+	_, err := r.db.Exec(query, entryID, tagID)
 	if err != nil {
-		return fmt.Errorf("failed to add tag: %w", err)
+		return fmt.Errorf("failed to add tag ID: %w", err)
 	}
 	return nil
 }
 
-func (r *EntriesRepository) RemoveTag(entryID int64, tag string) error {
-	query := `DELETE FROM entry_tags WHERE entry_id = ? AND tag = ?`
-	_, err := r.db.Exec(query, entryID, tag)
-	if err != nil {
-		return fmt.Errorf("failed to remove tag: %w", err)
-	}
-	return nil
-}
-
-func (r *EntriesRepository) getTagsByEntryID(entryID int64) ([]string, error) {
-	query := `SELECT tag FROM entry_tags WHERE entry_id = ?`
+func (r *EntriesRepository) getTagIDsByEntryID(entryID int64) ([]int64, error) {
+	query := `SELECT tag_id FROM entry_tag_ids WHERE entry_id = ?`
 
 	rows, err := r.db.Query(query, entryID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get tags: %w", err)
+		return nil, fmt.Errorf("failed to get tag IDs: %w", err)
 	}
 	defer rows.Close()
 
-	var tags []string
+	var tagIDs []int64
 	for rows.Next() {
-		var tag string
-		if err := rows.Scan(&tag); err != nil {
-			return nil, fmt.Errorf("failed to scan tag: %w", err)
+		var tagID int64
+		if err := rows.Scan(&tagID); err != nil {
+			return nil, fmt.Errorf("failed to scan tag ID: %w", err)
 		}
-		tags = append(tags, tag)
+		tagIDs = append(tagIDs, tagID)
 	}
 
-	return tags, nil
+	return tagIDs, nil
+}
+
+func (r *EntriesRepository) AddTag(entryID int64, tagID int64) error {
+	return r.addTagID(entryID, tagID)
+}
+
+func (r *EntriesRepository) RemoveTag(entryID int64, tagID int64) error {
+	query := `DELETE FROM entry_tag_ids WHERE entry_id = ? AND tag_id = ?`
+	_, err := r.db.Exec(query, entryID, tagID)
+	if err != nil {
+		return fmt.Errorf("failed to remove tag ID: %w", err)
+	}
+	return nil
 }

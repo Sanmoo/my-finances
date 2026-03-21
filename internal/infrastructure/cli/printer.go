@@ -14,6 +14,14 @@ func NewPrinter() *Printer {
 	return &Printer{}
 }
 
+func int64SliceToString(ids []int64) string {
+	strs := make([]string, len(ids))
+	for i, id := range ids {
+		strs[i] = fmt.Sprintf("%d", id)
+	}
+	return strings.Join(strs, ", ")
+}
+
 func (p *Printer) PrintAccount(acc *entity.Account) {
 	fmt.Printf("Account created: %s (ID: %d)\n", acc.Name, acc.ID)
 }
@@ -41,8 +49,8 @@ func (p *Printer) PrintEntry(entry *entity.Entry) {
 	if entry.Description != "" {
 		fmt.Printf("  Description: %s\n", entry.Description)
 	}
-	if len(entry.Tags) > 0 {
-		fmt.Printf("  Tags: %s\n", strings.Join(entry.Tags, ", "))
+	if len(entry.TagIDs) > 0 {
+		fmt.Printf("  Tags: %s\n", int64SliceToString(entry.TagIDs))
 	}
 }
 
@@ -63,8 +71,8 @@ func (p *Printer) PrintEntryWithCategory(entry *entity.Entry, category *entity.C
 	if entry.Description != "" {
 		fmt.Printf("  Description: %s\n", entry.Description)
 	}
-	if len(entry.Tags) > 0 {
-		fmt.Printf("  Tags: %s\n", strings.Join(entry.Tags, ", "))
+	if len(entry.TagIDs) > 0 {
+		fmt.Printf("  Tags: %s\n", int64SliceToString(entry.TagIDs))
 	}
 }
 
@@ -86,8 +94,8 @@ func (p *Printer) PrintEntryMarkdown(entry *entity.Entry, category *entity.Categ
 	}
 
 	tagStr := ""
-	if len(entry.Tags) > 0 {
-		tagStr = fmt.Sprintf(" `[%s]`", strings.Join(entry.Tags, "`, `"))
+	if len(entry.TagIDs) > 0 {
+		tagStr = fmt.Sprintf(" `[%s]`", int64SliceToString(entry.TagIDs))
 	}
 
 	catName := ""
@@ -238,8 +246,8 @@ func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[int6
 			desc := p.FormatEntryDescription(entry, ti)
 
 			tagsStr := ""
-			if len(entry.Tags) > 0 {
-				tagsStr = strings.Join(entry.Tags, ", ")
+			if len(entry.TagIDs) > 0 {
+				tagsStr = int64SliceToString(entry.TagIDs)
 			}
 
 			fmt.Printf("%-12s | %-15s | %-12s | %s\n", dateStr, catName, amountStr, desc)
@@ -270,8 +278,8 @@ func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[int6
 			desc := entry.Description
 
 			tagsStr := ""
-			if len(entry.Tags) > 0 {
-				tagsStr = strings.Join(entry.Tags, ", ")
+			if len(entry.TagIDs) > 0 {
+				tagsStr = int64SliceToString(entry.TagIDs)
 			}
 
 			fmt.Printf("%-12s | %-15s | %-12s | %s\n", dateStr, catName, amountStr, desc)
@@ -327,8 +335,8 @@ func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[i
 			desc := p.FormatEntryDescription(entry, ti)
 
 			tagsStr := ""
-			if len(entry.Tags) > 0 {
-				tagsStr = fmt.Sprintf("`[%s]`", strings.Join(entry.Tags, "`, `"))
+			if len(entry.TagIDs) > 0 {
+				tagsStr = fmt.Sprintf("`[%s]`", int64SliceToString(entry.TagIDs))
 			}
 
 			fmt.Printf("| %s | %s | %s | %s %s |\n", dateStr, catName, amountStr, desc, tagsStr)
@@ -361,8 +369,8 @@ func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[i
 			desc := entry.Description
 
 			tagsStr := ""
-			if len(entry.Tags) > 0 {
-				tagsStr = fmt.Sprintf("`[%s]`", strings.Join(entry.Tags, "`, `"))
+			if len(entry.TagIDs) > 0 {
+				tagsStr = fmt.Sprintf("`[%s]`", int64SliceToString(entry.TagIDs))
 			}
 
 			fmt.Printf("| %s | %s | %s | %s %s |\n", dateStr, catName, amountStr, desc, tagsStr)

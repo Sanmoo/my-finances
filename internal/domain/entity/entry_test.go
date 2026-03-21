@@ -130,22 +130,22 @@ func TestNewEntry_WithOptions(t *testing.T) {
 		assert.Equal(t, time.Month(3), entry.PaymentDate.Month())
 	})
 
-	t.Run("with tags", func(t *testing.T) {
-		tags := []string{"food", "lunch"}
-		entry, err := NewEntry(EntryTypeExpense, 50.00, "BRL", baseDate, WithTags(tags))
+	t.Run("with tag IDs", func(t *testing.T) {
+		tagIDs := []int64{1, 2}
+		entry, err := NewEntry(EntryTypeExpense, 50.00, "BRL", baseDate, WithTagIDs(tagIDs))
 		assert.NoError(t, err)
-		assert.Equal(t, tags, entry.Tags)
+		assert.Equal(t, tagIDs, entry.TagIDs)
 	})
 }
 
-func TestEntry_AddTag(t *testing.T) {
-	entry := &Entry{Tags: []string{"tag1"}}
+func TestEntry_AddTagID(t *testing.T) {
+	entry := &Entry{TagIDs: []int64{1}}
 
-	entry.AddTag("tag2")
-	assert.Equal(t, []string{"tag1", "tag2"}, entry.Tags)
+	entry.AddTagID(2)
+	assert.Equal(t, []int64{1, 2}, entry.TagIDs)
 
-	entry.AddTag("tag1")
-	assert.Equal(t, []string{"tag1", "tag2"}, entry.Tags)
+	entry.AddTagID(1)
+	assert.Equal(t, []int64{1, 2}, entry.TagIDs)
 }
 
 func TestEntry_IsExpense(t *testing.T) {

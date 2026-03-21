@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -157,7 +159,7 @@ var addCreditCardCmd = &cobra.Command{
 }
 
 var addExpenseCmd = &cobra.Command{
-	Use:   "expense [amount] --account <name> [--tags x,y] --date <YYYY-MM-DD> [--category x] --description <text> [--credit-card x] [--times n]",
+	Use:   "expense [amount] --account <name> --date <YYYY-MM-DD> --description <text> [--tags x,y] [--category x] [--credit-card x] [--times n]",
 	Short: "Add a new expense",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -173,7 +175,7 @@ var addExpenseCmd = &cobra.Command{
 		}
 
 		accountStr, _ := cmd.Flags().GetString("account")
-		tags, _ := cmd.Flags().GetStringSlice("tags")
+		tagsStr, _ := cmd.Flags().GetString("tags")
 		dateStr, _ := cmd.Flags().GetString("date")
 		categoryStr, _ := cmd.Flags().GetString("category")
 
@@ -206,8 +208,25 @@ var addExpenseCmd = &cobra.Command{
 
 		entryRepo := factory.NewEntriesRepository()
 		categoryRepo := factory.NewCategoriesRepository()
+		tagRepo := factory.NewTagsRepository()
 		ccRepo := factory.NewCreditCardsRepository()
-		uc := usecase.NewAddEntry(entryRepo, categoryRepo, ccRepo)
+
+		tagNames := parseCommaSeparated(tagsStr)
+		var tagIDs []int64
+		for _, tagName := range tagNames {
+			tag, err := tagRepo.GetByName(tagName)
+			if err != nil {
+				printer.PrintError(err.Error())
+				return
+			}
+			if tag == nil {
+				printer.PrintError(fmt.Sprintf("tag not registered: %s. Run: myfin add tag %s", tagName, tagName))
+				return
+			}
+			tagIDs = append(tagIDs, tag.ID)
+		}
+
+		uc := usecase.NewAddEntry(entryRepo, categoryRepo, tagRepo, ccRepo)
 
 		var cc *entity.CreditCard
 		if creditCardStr != "" {
@@ -235,7 +254,7 @@ var addExpenseCmd = &cobra.Command{
 			Description:         description,
 			CategoryNameOrAlias: categoryStr,
 			CreditCard:          cc,
-			Tags:                tags,
+			TagIDs:              tagIDs,
 			Times:               times,
 			Date:                date,
 			AccountID:           account.ID,
@@ -252,7 +271,7 @@ var addExpenseCmd = &cobra.Command{
 }
 
 var addIncomeCmd = &cobra.Command{
-	Use:   "income [amount] --account <name> --date <YYYY-MM-DD> [--category x] --description <text>",
+	Use:   "income [amount] --account <name> --date <YYYY-MM-DD> --description <text> [--category x] [--tags x,y]",
 	Short: "Add a new income",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -268,6 +287,7 @@ var addIncomeCmd = &cobra.Command{
 		}
 
 		accountStr, _ := cmd.Flags().GetString("account")
+		tagsStr, _ := cmd.Flags().GetString("tags")
 		dateStr, _ := cmd.Flags().GetString("date")
 		categoryStr, _ := cmd.Flags().GetString("category")
 		description, _ := cmd.Flags().GetString("description")
@@ -298,8 +318,25 @@ var addIncomeCmd = &cobra.Command{
 
 		entryRepo := factory.NewEntriesRepository()
 		categoryRepo := factory.NewCategoriesRepository()
+		tagRepo := factory.NewTagsRepository()
 		ccRepo := factory.NewCreditCardsRepository()
-		uc := usecase.NewAddEntry(entryRepo, categoryRepo, ccRepo)
+
+		tagNames := parseCommaSeparated(tagsStr)
+		var tagIDs []int64
+		for _, tagName := range tagNames {
+			tag, err := tagRepo.GetByName(tagName)
+			if err != nil {
+				printer.PrintError(err.Error())
+				return
+			}
+			if tag == nil {
+				printer.PrintError(fmt.Sprintf("tag not registered: %s. Run: myfin add tag %s", tagName, tagName))
+				return
+			}
+			tagIDs = append(tagIDs, tag.ID)
+		}
+
+		uc := usecase.NewAddEntry(entryRepo, categoryRepo, tagRepo, ccRepo)
 
 		result, err := uc.Execute(usecase.AddEntryInput{
 			Type:                entity.EntryTypeIncome,
@@ -307,6 +344,7 @@ var addIncomeCmd = &cobra.Command{
 			Currency:            currency,
 			Description:         description,
 			CategoryNameOrAlias: categoryStr,
+			TagIDs:              tagIDs,
 			Date:                date,
 			AccountID:           account.ID,
 		})
@@ -317,6 +355,66 @@ var addIncomeCmd = &cobra.Command{
 
 		for _, entry := range result.Entries {
 			printer.PrintEntryWithCategory(entry, result.Category)
+		}
+	},
+}
+
+var addTagCmd = &cobra.Command{
+	Use:   "tag <name>",
+	Short: "Add a new tag",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		factory, err := getFactory()
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+
+		repo := factory.NewTagsRepository()
+		uc := usecase.NewAddTag(repo)
+
+		result, err := uc.Execute(usecase.AddTagInput{
+			Name: args[0],
+		})
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+
+		fmt.Printf("Tag created: %s (ID: %d)\n", result.Tag.Name, result.Tag.ID)
+	},
+}
+
+var listCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List resources",
+}
+
+var listTagsCmd = &cobra.Command{
+	Use:   "tags",
+	Short: "List all registered tags",
+	Run: func(cmd *cobra.Command, args []string) {
+		factory, err := getFactory()
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+
+		repo := factory.NewTagsRepository()
+		tags, err := repo.GetAll()
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+
+		if len(tags) == 0 {
+			fmt.Println("No tags registered")
+			return
+		}
+
+		fmt.Println("Registered tags:")
+		for _, tag := range tags {
+			fmt.Printf("  %d: %s\n", tag.ID, tag.Name)
 		}
 	},
 }
@@ -353,7 +451,7 @@ var reportEntriesCmd = &cobra.Command{
 			until = &t
 		}
 
-		filterTags := parseCommaSeparated(filterTagsStr)
+		filterTags := parseCommaSeparatedInt64(filterTagsStr)
 		filterCategories := parseCommaSeparated(filterCategoriesStr)
 
 		entryRepo := factory.NewEntriesRepository()
@@ -431,7 +529,7 @@ var reportEntriesCmd = &cobra.Command{
 				ParentEntryID:   e.ParentEntryID,
 				RealizationDate: e.RealizationDate,
 				PaymentDate:     e.PaymentDate,
-				Tags:            e.Tags,
+				TagIDs:          []int64{},
 			}
 			entries = append(entries, entry)
 		}
@@ -542,6 +640,10 @@ func init() {
 	addCmd.AddCommand(addCreditCardCmd)
 	addCmd.AddCommand(addExpenseCmd)
 	addCmd.AddCommand(addIncomeCmd)
+	addCmd.AddCommand(addTagCmd)
+
+	rootCmd.AddCommand(listCmd)
+	listCmd.AddCommand(listTagsCmd)
 
 	reportCmd.AddCommand(reportEntriesCmd)
 	reportCmd.AddCommand(reportBalancesCmd)
@@ -557,7 +659,7 @@ func init() {
 	addCreditCardCmd.Flags().Int("due-day", 0, "due day (1-31)")
 
 	addExpenseCmd.Flags().String("account", "", "account name (required)")
-	addExpenseCmd.Flags().StringSlice("tags", []string{}, "tags (comma-separated)")
+	addExpenseCmd.Flags().String("tags", "", "tag names (comma-separated)")
 	addExpenseCmd.Flags().String("date", "", "date (DD-MM-YY)")
 	addExpenseCmd.Flags().String("category", "", "category name or alias")
 	addExpenseCmd.Flags().String("description", "", "description")
@@ -565,6 +667,7 @@ func init() {
 	addExpenseCmd.Flags().Int("times", 0, "number of installments")
 
 	addIncomeCmd.Flags().String("account", "", "account name (required)")
+	addIncomeCmd.Flags().String("tags", "", "tag names (comma-separated)")
 	addIncomeCmd.Flags().String("date", "", "date (DD-MM-YY)")
 	addIncomeCmd.Flags().String("category", "", "category name or alias")
 	addIncomeCmd.Flags().String("description", "", "description")
@@ -658,6 +761,23 @@ func parseCommaSeparated(s string) []string {
 		trimmed := strings.TrimSpace(p)
 		if trimmed != "" {
 			result = append(result, trimmed)
+		}
+	}
+	return result
+}
+
+func parseCommaSeparatedInt64(s string) []int64 {
+	if s == "" {
+		return []int64{}
+	}
+	parts := strings.Split(s, ",")
+	result := make([]int64, 0, len(parts))
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			if id, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
+				result = append(result, id)
+			}
 		}
 	}
 	return result

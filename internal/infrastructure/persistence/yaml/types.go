@@ -60,20 +60,20 @@ func (cc *CreditCard) FromEntity(ecc *entity.CreditCard) {
 }
 
 type Entry struct {
-	ID              int64    `yaml:"id"`
-	Type            string   `yaml:"type"`
-	Amount          float64  `yaml:"amount"`
-	Currency        string   `yaml:"currency"`
-	Description     string   `yaml:"description,omitempty"`
-	CategoryID      *int64   `yaml:"category_id,omitempty"`
-	CreditCardID    *int64   `yaml:"credit_card_id,omitempty"`
-	AccountID       int64    `yaml:"account_id"`
-	Installment     int      `yaml:"installment"`
-	ParentEntryID   *int64   `yaml:"parent_entry_id,omitempty"`
-	RealizationDate string   `yaml:"realization_date"`
-	PaymentDate     *string  `yaml:"payment_date,omitempty"`
-	CreatedAt       string   `yaml:"created_at"`
-	Tags            []string `yaml:"tags,omitempty"`
+	ID              int64   `yaml:"id"`
+	Type            string  `yaml:"type"`
+	Amount          float64 `yaml:"amount"`
+	Currency        string  `yaml:"currency"`
+	Description     string  `yaml:"description,omitempty"`
+	CategoryID      *int64  `yaml:"category_id,omitempty"`
+	CreditCardID    *int64  `yaml:"credit_card_id,omitempty"`
+	AccountID       int64   `yaml:"account_id"`
+	Installment     int     `yaml:"installment"`
+	ParentEntryID   *int64  `yaml:"parent_entry_id,omitempty"`
+	RealizationDate string  `yaml:"realization_date"`
+	PaymentDate     *string `yaml:"payment_date,omitempty"`
+	CreatedAt       string  `yaml:"created_at"`
+	TagIDs          []int64 `yaml:"tag_ids,omitempty"`
 }
 
 func (e *Entry) ToEntity() *entity.Entry {
@@ -88,7 +88,7 @@ func (e *Entry) ToEntity() *entity.Entry {
 		AccountID:     e.AccountID,
 		Installment:   e.Installment,
 		ParentEntryID: e.ParentEntryID,
-		Tags:          e.Tags,
+		TagIDs:        e.TagIDs,
 	}
 
 	if e.RealizationDate != "" {
@@ -123,7 +123,7 @@ func (e *Entry) FromEntity(ee *entity.Entry) {
 	e.AccountID = ee.AccountID
 	e.Installment = ee.Installment
 	e.ParentEntryID = ee.ParentEntryID
-	e.Tags = ee.Tags
+	e.TagIDs = ee.TagIDs
 	e.RealizationDate = ee.RealizationDate.Format("2006-01-02")
 
 	if ee.PaymentDate != nil {

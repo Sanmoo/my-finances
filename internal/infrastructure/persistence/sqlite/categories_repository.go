@@ -95,6 +95,8 @@ func (r *CategoriesRepository) GetAll() ([]*entity.Category, error) {
 }
 
 func (r *CategoriesRepository) GetByNameOrAlias(nameOrAlias string) (*entity.Category, error) {
+	nameOrAlias = entity.TrimLower(nameOrAlias)
+
 	query := `SELECT id, name, alias, emoji, type FROM categories WHERE name = ? OR alias = ?`
 
 	var cat entity.Category

@@ -12,7 +12,7 @@ type Account struct {
 }
 
 func NewAccount(name string) (*Account, error) {
-	name = trimLower(name)
+	name = TrimLower(name)
 	if name == "" {
 		return nil, ErrEmptyAccountName
 	}

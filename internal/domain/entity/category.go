@@ -24,7 +24,7 @@ type Category struct {
 }
 
 func NewCategory(name string, catType CategoryType, opts ...CategoryOption) (*Category, error) {
-	name = trimLower(name)
+	name = TrimLower(name)
 	if name == "" {
 		return nil, ErrEmptyCategoryName
 	}
@@ -48,7 +48,7 @@ type CategoryOption func(*Category)
 
 func WithAlias(alias string) CategoryOption {
 	return func(c *Category) {
-		alias = trimLower(alias)
+		alias = TrimLower(alias)
 		if alias != "" {
 			c.Alias = &alias
 		}

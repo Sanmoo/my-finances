@@ -87,6 +87,8 @@ func (r *CategoriesRepository) GetAll() ([]*entity.Category, error) {
 }
 
 func (r *CategoriesRepository) GetByNameOrAlias(nameOrAlias string) (*entity.Category, error) {
+	nameOrAlias = entity.TrimLower(nameOrAlias)
+
 	data, err := Read[CategoriesData](r.filePath())
 	if err != nil {
 		return nil, err

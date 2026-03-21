@@ -1,6 +1,6 @@
 package entity
 
-func trimLower(s string) string {
+func TrimLower(s string) string {
 	return toLower(trim(s))
 }
 

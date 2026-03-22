@@ -25,8 +25,16 @@ func (r *EntriesRepository) filePath(accountName string, year int, month time.Mo
 		fmt.Sprintf("%d-%02d-%s-entries.yaml", year, month, accountName))
 }
 
+func (r *EntriesRepository) getStorageDate(entry *entity.Entry) time.Time {
+	if entry.PaymentDate != nil {
+		return *entry.PaymentDate
+	}
+	return entry.RealizationDate
+}
+
 func (r *EntriesRepository) Create(entry *entity.Entry, accountName string) error {
-	path := r.filePath(accountName, entry.RealizationDate.Year(), entry.RealizationDate.Month())
+	storageDate := r.getStorageDate(entry)
+	path := r.filePath(accountName, storageDate.Year(), storageDate.Month())
 
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err

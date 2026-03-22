@@ -300,3 +300,75 @@ func TestGetCategoryDisplayName(t *testing.T) {
 		assert.Equal(t, "🍕 food", result)
 	})
 }
+
+func TestFormatEntriesTable_PaymentDate(t *testing.T) {
+	f := newTestFormatter()
+
+	t.Run("shows payment date when available", func(t *testing.T) {
+		realizationDate := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
+		paymentDate := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
+
+		entries := []*entity.Entry{
+			{
+				Type:            entity.EntryTypeExpense,
+				Amount:          100.00,
+				Currency:        "BRL",
+				RealizationDate: realizationDate,
+				PaymentDate:     &paymentDate,
+				Description:     "Test credit card purchase",
+			},
+		}
+		categories := map[string]*entity.Category{}
+		accounts := map[string]*entity.Account{}
+
+		output := f.FormatEntriesTable(entries, categories, accounts, "")
+
+		assert.Contains(t, output, "16/04/2026")
+	})
+
+	t.Run("shows realization date when payment date is nil", func(t *testing.T) {
+		realizationDate := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
+
+		entries := []*entity.Entry{
+			{
+				Type:            entity.EntryTypeExpense,
+				Amount:          100.00,
+				Currency:        "BRL",
+				RealizationDate: realizationDate,
+				Description:     "Test normal purchase",
+			},
+		}
+		categories := map[string]*entity.Category{}
+		accounts := map[string]*entity.Account{}
+
+		output := f.FormatEntriesTable(entries, categories, accounts, "")
+
+		assert.Contains(t, output, "14/03/2026")
+	})
+}
+
+func TestFormatEntriesMarkdown_PaymentDate(t *testing.T) {
+	f := newTestFormatter()
+
+	t.Run("shows payment date in markdown when available", func(t *testing.T) {
+		realizationDate := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
+		paymentDate := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
+
+		entries := []*entity.Entry{
+			{
+				Type:            entity.EntryTypeExpense,
+				Amount:          100.00,
+				Currency:        "BRL",
+				RealizationDate: realizationDate,
+				PaymentDate:     &paymentDate,
+				Description:     "Test credit card purchase",
+			},
+		}
+		categories := map[string]*entity.Category{}
+		accounts := map[string]*entity.Account{}
+
+		output := f.FormatEntriesMarkdown(entries, categories, accounts, "")
+
+		assert.Contains(t, output, "16/04/2026")
+	})
+}

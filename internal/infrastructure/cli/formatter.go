@@ -202,7 +202,11 @@ func (f *Formatter) separateByTypeForReport(entries []*entity.Entry) (expenses, 
 }
 
 func (f *Formatter) formatReportEntryRow(entry *entity.Entry, categories map[string]*entity.Category, catWidth int) string {
-	dateStr := f.locale.FormatDate(entry.RealizationDate)
+	displayDate := entry.RealizationDate
+	if entry.PaymentDate != nil {
+		displayDate = *entry.PaymentDate
+	}
+	dateStr := f.locale.FormatDate(displayDate)
 
 	catName := ""
 	if entry.CategoryAlias != nil {
@@ -253,7 +257,11 @@ func (f *Formatter) FormatEntriesMarkdown(entries []*entity.Entry, categories ma
 }
 
 func (f *Formatter) formatReportEntryMarkdownRow(entry *entity.Entry, categories map[string]*entity.Category) string {
-	dateStr := f.locale.FormatDate(entry.RealizationDate)
+	displayDate := entry.RealizationDate
+	if entry.PaymentDate != nil {
+		displayDate = *entry.PaymentDate
+	}
+	dateStr := f.locale.FormatDate(displayDate)
 
 	catName := ""
 	if entry.CategoryAlias != nil {

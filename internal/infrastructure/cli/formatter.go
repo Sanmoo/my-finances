@@ -6,9 +6,12 @@ import (
 	"time"
 
 	"github.com/Sanmoo/my-finances/internal/domain/entity"
+	"github.com/Sanmoo/my-finances/internal/infrastructure/i18n"
 )
 
-type Formatter struct{}
+type Formatter struct {
+	locale *i18n.Locale
+}
 
 type AccountBalance struct {
 	Account      *entity.Account
@@ -17,8 +20,8 @@ type AccountBalance struct {
 	Balance      float64
 }
 
-func NewFormatter() *Formatter {
-	return &Formatter{}
+func NewFormatter(locale *i18n.Locale) *Formatter {
+	return &Formatter{locale: locale}
 }
 
 func (f *Formatter) FormatAccount(acc *entity.Account) string {
@@ -43,10 +46,10 @@ func (f *Formatter) FormatCreditCard(cc *entity.CreditCard) string {
 func (f *Formatter) FormatEntry(entry *entity.Entry, tags map[int64]*entity.Tag) string {
 	var lines []string
 	lines = append(lines, fmt.Sprintf("Entry created (ID: %d)", entry.ID))
-	lines = append(lines, fmt.Sprintf("  Type: %s, Amount: %.2f %s", entry.Type, entry.Amount, entry.Currency))
-	lines = append(lines, fmt.Sprintf("  Date: %s", entry.RealizationDate.Format("02-01-2006")))
+	lines = append(lines, fmt.Sprintf("  Type: %s, Amount: %s", entry.Type, f.locale.FormatCurrency(entry.Amount, entry.Currency)))
+	lines = append(lines, fmt.Sprintf("  Date: %s", f.locale.FormatDate(entry.RealizationDate)))
 	if entry.PaymentDate != nil {
-		lines = append(lines, fmt.Sprintf("  Payment Date: %s", entry.PaymentDate.Format("02-01-2006")))
+		lines = append(lines, fmt.Sprintf("  Payment Date: %s", f.locale.FormatDate(*entry.PaymentDate)))
 	}
 	if entry.Description != "" {
 		lines = append(lines, fmt.Sprintf("  Description: %s", entry.Description))
@@ -60,10 +63,10 @@ func (f *Formatter) FormatEntry(entry *entity.Entry, tags map[int64]*entity.Tag)
 func (f *Formatter) FormatEntryWithCategory(entry *entity.Entry, category *entity.Category, tags map[int64]*entity.Tag) string {
 	var lines []string
 	lines = append(lines, fmt.Sprintf("Entry created (ID: %d)", entry.ID))
-	lines = append(lines, fmt.Sprintf("  Type: %s, Amount: %.2f %s", entry.Type, entry.Amount, entry.Currency))
-	lines = append(lines, fmt.Sprintf("  Date: %s", entry.RealizationDate.Format("02-01-2006")))
+	lines = append(lines, fmt.Sprintf("  Type: %s, Amount: %s", entry.Type, f.locale.FormatCurrency(entry.Amount, entry.Currency)))
+	lines = append(lines, fmt.Sprintf("  Date: %s", f.locale.FormatDate(entry.RealizationDate)))
 	if entry.PaymentDate != nil {
-		lines = append(lines, fmt.Sprintf("  Payment Date: %s", entry.PaymentDate.Format("02-01-2006")))
+		lines = append(lines, fmt.Sprintf("  Payment Date: %s", f.locale.FormatDate(*entry.PaymentDate)))
 	}
 	if category != nil {
 		emoji := ""
@@ -87,10 +90,10 @@ func (f *Formatter) FormatEntryMarkdown(entry *entity.Entry, category *entity.Ca
 		emoji = *category.Emoji + " "
 	}
 
-	dateStr := entry.RealizationDate.Format("02/01/2006")
+	dateStr := f.locale.FormatDate(entry.RealizationDate)
 	paymentStr := ""
 	if entry.PaymentDate != nil {
-		paymentStr = fmt.Sprintf(" → %s", entry.PaymentDate.Format("02/01/2006"))
+		paymentStr = fmt.Sprintf(" → %s", f.locale.FormatDate(*entry.PaymentDate))
 	}
 
 	descStr := ""
@@ -113,11 +116,11 @@ func (f *Formatter) FormatEntryMarkdown(entry *entity.Entry, category *entity.Ca
 		entryType = "💸"
 	}
 
-	return fmt.Sprintf("| %s | %s | %s | %.2f |%s%s%s |",
+	return fmt.Sprintf("| %s | %s | %s | %s |%s%s%s |",
 		dateStr+paymentStr,
 		catName,
 		entryType,
-		entry.Amount,
+		f.locale.FormatCurrency(entry.Amount, entry.Currency),
 		descStr,
 		tagStr,
 		"")
@@ -126,7 +129,7 @@ func (f *Formatter) FormatEntryMarkdown(entry *entity.Entry, category *entity.Ca
 func (f *Formatter) FormatEntryDescription(entry *entity.Entry, totalInstallments int) string {
 	desc := entry.Description
 	if entry.CreditCardID != nil {
-		ccPart := "[CC] (" + entry.RealizationDate.Format("02/01/2006") + ")"
+		ccPart := "[CC] (" + f.locale.FormatDate(entry.RealizationDate) + ")"
 		if totalInstallments > 1 {
 			ccPart += fmt.Sprintf(" (%d/%d)", entry.Installment, totalInstallments)
 		}
@@ -204,10 +207,10 @@ func (f *Formatter) FormatReportMarkdown(entries []*entity.Entry, categories map
 	if from != nil || to != nil {
 		period := ""
 		if from != nil {
-			period += fmt.Sprintf("from %s ", from.Format("02/01/2006"))
+			period += fmt.Sprintf("from %s ", f.locale.FormatDate(*from))
 		}
 		if to != nil {
-			period += fmt.Sprintf("until %s", to.Format("02/01/2006"))
+			period += fmt.Sprintf("until %s", f.locale.FormatDate(*to))
 		}
 		sb.WriteString(fmt.Sprintf("**Period:** %s\n\n", strings.TrimSpace(period)))
 	}
@@ -239,9 +242,9 @@ func (f *Formatter) FormatSummary(entries []*entity.Entry) string {
 
 	var sb strings.Builder
 	sb.WriteString("## Summary\n")
-	sb.WriteString(fmt.Sprintf("- **Total Income:** %.2f\n", totalIncome))
-	sb.WriteString(fmt.Sprintf("- **Total Expense:** %.2f\n", totalExpense))
-	sb.WriteString(fmt.Sprintf("- **Balance:** %.2f\n", totalIncome-totalExpense))
+	sb.WriteString(fmt.Sprintf("- **Total Income:** %s\n", f.locale.FormatNumber(totalIncome)))
+	sb.WriteString(fmt.Sprintf("- **Total Expense:** %s\n", f.locale.FormatNumber(totalExpense)))
+	sb.WriteString(fmt.Sprintf("- **Balance:** %s\n", f.locale.FormatNumber(totalIncome-totalExpense)))
 
 	return sb.String()
 }
@@ -260,21 +263,21 @@ func (f *Formatter) FormatBalancesTable(accounts []*entity.Account, accountBalan
 		if from != nil || to != nil {
 			period := ""
 			if from != nil {
-				period += from.Format("02/01/2006")
+				period += f.locale.FormatDate(*from)
 			}
 			if from != nil && to != nil {
 				period += " - "
 			}
 			if to != nil {
-				period += to.Format("02/01/2006")
+				period += f.locale.FormatDate(*to)
 			}
 			sb.WriteString(fmt.Sprintf("Period: %s\n\n", period))
 		}
 
-		sb.WriteString(fmt.Sprintf("  Total Income:  %.2f\n", ab.TotalIncome))
-		sb.WriteString(fmt.Sprintf("  Total Expense: %.2f\n", ab.TotalExpense))
+		sb.WriteString(fmt.Sprintf("  Total Income:  %s\n", f.locale.FormatNumber(ab.TotalIncome)))
+		sb.WriteString(fmt.Sprintf("  Total Expense: %s\n", f.locale.FormatNumber(ab.TotalExpense)))
 		sb.WriteString("  " + strings.Repeat("-", 30) + "\n")
-		sb.WriteString(fmt.Sprintf("  Balance:       %.2f\n\n", ab.Balance))
+		sb.WriteString(fmt.Sprintf("  Balance:       %s\n\n", f.locale.FormatNumber(ab.Balance)))
 	}
 
 	return sb.String()
@@ -296,22 +299,22 @@ func (f *Formatter) FormatBalancesMarkdown(accounts []*entity.Account, accountBa
 		if from != nil || to != nil {
 			period := ""
 			if from != nil {
-				period += from.Format("02/01/2006")
+				period += f.locale.FormatDate(*from)
 			}
 			if from != nil && to != nil {
 				period += " - "
 			}
 			if to != nil {
-				period += to.Format("02/01/2006")
+				period += f.locale.FormatDate(*to)
 			}
 			sb.WriteString(fmt.Sprintf("**Period:** %s\n\n", period))
 		}
 
 		sb.WriteString("| | Amount |\n")
 		sb.WriteString("|---|---:|\n")
-		sb.WriteString(fmt.Sprintf("| Total Income | %.2f |\n", ab.TotalIncome))
-		sb.WriteString(fmt.Sprintf("| Total Expense | %.2f |\n", ab.TotalExpense))
-		sb.WriteString(fmt.Sprintf("| **Balance** | **%.2f** |\n\n", ab.Balance))
+		sb.WriteString(fmt.Sprintf("| Total Income | %s |\n", f.locale.FormatNumber(ab.TotalIncome)))
+		sb.WriteString(fmt.Sprintf("| Total Expense | %s |\n", f.locale.FormatNumber(ab.TotalExpense)))
+		sb.WriteString(fmt.Sprintf("| **Balance** | **%s** |\n\n", f.locale.FormatNumber(ab.Balance)))
 	}
 
 	return sb.String()
@@ -354,7 +357,7 @@ func (f *Formatter) separateByType(entries []*entity.Entry) (expenses, incomes [
 func (f *Formatter) formatEntryTableRow(entry *entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int) string {
 	var sb strings.Builder
 
-	dateStr := entry.RealizationDate.Format("02-01-2006")
+	dateStr := f.locale.FormatDate(entry.RealizationDate)
 	catName := ""
 	if entry.CategoryID != nil {
 		if cat, ok := categories[*entry.CategoryID]; ok {
@@ -362,8 +365,7 @@ func (f *Formatter) formatEntryTableRow(entry *entity.Entry, categories map[int6
 		}
 	}
 
-	currency := entry.Currency
-	amountStr := fmt.Sprintf("%s %.2f", currency, entry.Amount)
+	amountStr := f.locale.FormatCurrency(entry.Amount, entry.Currency)
 
 	ti := 0
 	if totalInstallments != nil {
@@ -390,7 +392,7 @@ func (f *Formatter) formatEntryTableRow(entry *entity.Entry, categories map[int6
 }
 
 func (f *Formatter) formatEntryMarkdownRow(entry *entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int) string {
-	dateStr := entry.RealizationDate.Format("02/01/2006")
+	dateStr := f.locale.FormatDate(entry.RealizationDate)
 	catName := ""
 	if entry.CategoryID != nil {
 		if cat, ok := categories[*entry.CategoryID]; ok {
@@ -402,8 +404,7 @@ func (f *Formatter) formatEntryMarkdownRow(entry *entity.Entry, categories map[i
 		}
 	}
 
-	currency := entry.Currency
-	amountStr := fmt.Sprintf("%s %.2f", currency, entry.Amount)
+	amountStr := f.locale.FormatCurrency(entry.Amount, entry.Currency)
 
 	ti := 0
 	if totalInstallments != nil {

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/Sanmoo/my-finances/internal/domain/entity"
+	"github.com/Sanmoo/my-finances/internal/infrastructure/config"
+	"github.com/Sanmoo/my-finances/internal/infrastructure/i18n"
 )
 
 type Printer struct {
@@ -15,15 +17,39 @@ type Printer struct {
 }
 
 func NewPrinter() *Printer {
+	cfg, err := config.NewLoader().Load()
+	if err != nil {
+		cfg = &config.Config{Locale: "pt-BR"}
+	}
+	if cfg.Locale == "" {
+		cfg.Locale = "pt-BR"
+	}
 	return &Printer{
-		formatter: NewFormatter(),
+		formatter: NewFormatter(i18n.New(cfg.Locale)),
+		output:    os.Stdout,
+	}
+}
+
+func NewPrinterWithLocale(locale string) *Printer {
+	if locale == "" {
+		locale = "pt-BR"
+	}
+	return &Printer{
+		formatter: NewFormatter(i18n.New(locale)),
 		output:    os.Stdout,
 	}
 }
 
 func NewPrinterWithOutput(w io.Writer) *Printer {
+	cfg, err := config.NewLoader().Load()
+	if err != nil {
+		cfg = &config.Config{Locale: "pt-BR"}
+	}
+	if cfg.Locale == "" {
+		cfg.Locale = "pt-BR"
+	}
 	return &Printer{
-		formatter: NewFormatter(),
+		formatter: NewFormatter(i18n.New(cfg.Locale)),
 		output:    w,
 	}
 }

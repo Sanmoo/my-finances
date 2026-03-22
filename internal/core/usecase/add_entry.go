@@ -101,12 +101,7 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 	entries := make([]*entity.Entry, 0, input.Times)
 
 	for i := 0; i < input.Times; i++ {
-		date := input.Date
-		if i > 0 {
-			date = date.AddDate(0, 1, 0)
-		}
-
-		entry, err := uc.createEntry(input, amount, date, i+1, categoryAlias, creditCard)
+		entry, err := uc.createEntry(input, amount, input.Date, i+1, categoryAlias, creditCard)
 		if err != nil {
 			return nil, err
 		}
@@ -134,16 +129,16 @@ func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.T
 		opts = append(opts, entity.WithCategoryAlias(*categoryAlias))
 	}
 
+	if input.Times > 1 {
+		opts = append(opts, entity.WithInstallment(installmentNumber, input.Times))
+	}
+
 	if creditCard != nil {
 		opts = append(opts, entity.WithCreditCard(creditCard))
 	}
 
 	if len(input.Tags) > 0 {
 		opts = append(opts, entity.WithTags(input.Tags))
-	}
-
-	if input.Times > 1 {
-		opts = append(opts, entity.WithInstallment(installmentNumber, input.Times))
 	}
 
 	entry, err := entity.NewEntry(input.Type, amount, input.Currency, date, opts...)

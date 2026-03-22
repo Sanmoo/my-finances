@@ -83,7 +83,12 @@ func WithCategoryAlias(alias string) EntryOption {
 func WithCreditCard(cc *CreditCard) EntryOption {
 	return func(e *Entry) {
 		e.CreditCardName = &cc.Name
-		paymentDate := cc.CalculatePaymentDate(e.RealizationDate)
+		var paymentDate time.Time
+		if e.InstallmentTotal > 1 {
+			paymentDate = cc.CalculateInstallmentPaymentDate(e.RealizationDate, e.InstallmentNumber)
+		} else {
+			paymentDate = cc.CalculatePaymentDate(e.RealizationDate)
+		}
 		e.PaymentDate = &paymentDate
 	}
 }

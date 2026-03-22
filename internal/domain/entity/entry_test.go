@@ -163,3 +163,93 @@ func TestEntry_IsExpense(t *testing.T) {
 	assert.False(t, entry.IsExpense())
 	assert.True(t, entry.IsIncome())
 }
+
+func TestNewEntry_WithCreditCardInstallments(t *testing.T) {
+	cc := &CreditCard{
+		Name:       "Test Card",
+		ClosingDay: 9,
+		DueDay:     16,
+	}
+
+	realizationDate := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
+
+	t.Run("installment 1 of 6 has correct payment date", func(t *testing.T) {
+		entry, err := NewEntry(
+			EntryTypeExpense,
+			66.42,
+			"BRL",
+			realizationDate,
+			WithInstallment(1, 6),
+			WithCreditCard(cc),
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, realizationDate, entry.RealizationDate)
+		assert.NotNil(t, entry.PaymentDate)
+		assert.Equal(t, 16, entry.PaymentDate.Day())
+		assert.Equal(t, time.Month(4), entry.PaymentDate.Month())
+		assert.Equal(t, 2026, entry.PaymentDate.Year())
+	})
+
+	t.Run("installment 2 of 6 has correct payment date", func(t *testing.T) {
+		entry, err := NewEntry(
+			EntryTypeExpense,
+			66.42,
+			"BRL",
+			realizationDate,
+			WithInstallment(2, 6),
+			WithCreditCard(cc),
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, realizationDate, entry.RealizationDate)
+		assert.NotNil(t, entry.PaymentDate)
+		assert.Equal(t, 16, entry.PaymentDate.Day())
+		assert.Equal(t, time.Month(5), entry.PaymentDate.Month())
+		assert.Equal(t, 2026, entry.PaymentDate.Year())
+	})
+
+	t.Run("installment 6 of 6 has correct payment date", func(t *testing.T) {
+		entry, err := NewEntry(
+			EntryTypeExpense,
+			66.42,
+			"BRL",
+			realizationDate,
+			WithInstallment(6, 6),
+			WithCreditCard(cc),
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, realizationDate, entry.RealizationDate)
+		assert.NotNil(t, entry.PaymentDate)
+		assert.Equal(t, 16, entry.PaymentDate.Day())
+		assert.Equal(t, time.Month(9), entry.PaymentDate.Month())
+		assert.Equal(t, 2026, entry.PaymentDate.Year())
+	})
+
+	t.Run("all installments have same realization date", func(t *testing.T) {
+		for i := 1; i <= 6; i++ {
+			entry, err := NewEntry(
+				EntryTypeExpense,
+				66.42,
+				"BRL",
+				realizationDate,
+				WithInstallment(i, 6),
+				WithCreditCard(cc),
+			)
+			assert.NoError(t, err)
+			assert.Equal(t, realizationDate, entry.RealizationDate,
+				"installment %d should have same realization date", i)
+		}
+	})
+
+	t.Run("order of options matters - WithInstallment must come before WithCreditCard", func(t *testing.T) {
+		entryWrong, err := NewEntry(
+			EntryTypeExpense,
+			66.42,
+			"BRL",
+			realizationDate,
+			WithCreditCard(cc),
+			WithInstallment(2, 6),
+		)
+		assert.NoError(t, err)
+		assert.NotNil(t, entryWrong.PaymentDate)
+	})
+}

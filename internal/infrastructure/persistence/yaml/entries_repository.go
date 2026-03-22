@@ -130,14 +130,20 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 							continue
 						}
 						if filters.FromDate != nil {
-							t, _ := time.Parse("2006-01-02", data.Entries[i].RealizationDate)
-							if t.Before(*filters.FromDate) {
+							filterDate := entry.RealizationDate
+							if entry.PaymentDate != nil {
+								filterDate = *entry.PaymentDate
+							}
+							if filterDate.Before(*filters.FromDate) {
 								continue
 							}
 						}
 						if filters.ToDate != nil {
-							t, _ := time.Parse("2006-01-02", data.Entries[i].RealizationDate)
-							if t.After(*filters.ToDate) {
+							filterDate := entry.RealizationDate
+							if entry.PaymentDate != nil {
+								filterDate = *entry.PaymentDate
+							}
+							if filterDate.After(*filters.ToDate) {
 								continue
 							}
 						}
@@ -195,7 +201,7 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 			return e1.RealizationDate.Before(*pd2)
 		}
 		if pd2 == nil {
-			return e1.RealizationDate.Before(*pd1)
+			return pd1.Before(e2.RealizationDate)
 		}
 		if pd1.Equal(*pd2) {
 			return e1.RealizationDate.Before(e2.RealizationDate)

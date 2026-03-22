@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -15,17 +13,13 @@ import (
 	"github.com/Sanmoo/my-finances/internal/domain/entity"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/cli"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/config"
-	"github.com/Sanmoo/my-finances/internal/infrastructure/database"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/persistence"
-	"github.com/Sanmoo/my-finances/internal/infrastructure/persistence/sqlite"
 )
 
 var (
-	dbFlag      string
-	printer     = cli.NewPrinter()
-	cfgLoader   = config.NewLoader()
-	dbManager   *database.Manager
-	repoFactory *persistence.RepositoryFactory
+	printer   = cli.NewPrinter()
+	cfgLoader = config.NewLoader()
+	repo      *persistence.RepositoryFactory
 )
 
 func main() {
@@ -72,7 +66,7 @@ var addAccountCmd = &cobra.Command{
 }
 
 var addCategoryCmd = &cobra.Command{
-	Use:   "category <name> --account <account> --type <inc|exp> [--alias <alias>] [--emoji <emoji>]",
+	Use:   "category <name> --account <account> --type <inc|exp> --alias <alias> [--emoji <emoji>]",
 	Short: "Add a new category",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -88,30 +82,24 @@ var addCategoryCmd = &cobra.Command{
 			return
 		}
 
-		accountRepo := factory.NewAccountsRepository()
-		account, err := accountRepo.GetByName(accountStr)
-		if err != nil {
-			printer.PrintError(err.Error())
-			return
-		}
-		if account == nil {
-			printer.PrintError("account not found: " + accountStr)
+		alias, _ := cmd.Flags().GetString("alias")
+		if alias == "" {
+			printer.PrintError("--alias is required")
 			return
 		}
 
 		catType, _ := cmd.Flags().GetString("type")
-		alias, _ := cmd.Flags().GetString("alias")
 		emoji, _ := cmd.Flags().GetString("emoji")
 
 		repo := factory.NewCategoriesRepository()
 		uc := usecase.NewAddCategory(repo)
 
 		result, err := uc.Execute(usecase.AddCategoryInput{
-			AccountID: account.ID,
-			Name:      args[0],
-			Type:      entity.CategoryType(catType),
-			Alias:     alias,
-			Emoji:     emoji,
+			AccountName: accountStr,
+			Name:        args[0],
+			Type:        entity.CategoryType(catType),
+			Alias:       alias,
+			Emoji:       emoji,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
@@ -159,7 +147,7 @@ var addCreditCardCmd = &cobra.Command{
 }
 
 var addExpenseCmd = &cobra.Command{
-	Use:   "expense [amount] --account <name> --date <YYYY-MM-DD> --description <text> [--tags x,y] [--category x] [--credit-card x] [--times n]",
+	Use:   "expense [amount] --account <name> --date <YYYY-MM-DD> --description <text> [--tags x,y] [--category <alias>] [--credit-card <name>] [--times n]",
 	Short: "Add a new expense",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -192,17 +180,6 @@ var addExpenseCmd = &cobra.Command{
 			return
 		}
 
-		accountRepo := factory.NewAccountsRepository()
-		account, err := accountRepo.GetByName(accountStr)
-		if err != nil {
-			printer.PrintError(err.Error())
-			return
-		}
-		if account == nil {
-			printer.PrintError("account not found: " + accountStr)
-			return
-		}
-
 		date := parseDate(dateStr)
 		currency := getDefaultCurrency()
 
@@ -211,57 +188,34 @@ var addExpenseCmd = &cobra.Command{
 		tagRepo := factory.NewTagsRepository()
 		ccRepo := factory.NewCreditCardsRepository()
 
-		tagNames := parseCommaSeparated(tagsStr)
-		var tagIDs []int64
-		for _, tagName := range tagNames {
-			tag, err := tagRepo.GetByName(tagName)
-			if err != nil {
-				printer.PrintError(err.Error())
-				return
-			}
-			if tag == nil {
-				printer.PrintError(fmt.Sprintf("tag not registered: %s. Run: myfin add tag %s", tagName, tagName))
-				return
-			}
-			tagIDs = append(tagIDs, tag.ID)
-		}
+		tags := parseCommaSeparated(tagsStr)
 		uc := usecase.NewAddEntry(entryRepo, categoryRepo, tagRepo, ccRepo)
 
 		result, err := uc.Execute(usecase.AddEntryInput{
-			Type:                entity.EntryTypeExpense,
-			Amount:              amount,
-			Currency:            currency,
-			Description:         description,
-			CategoryNameOrAlias: categoryStr,
-			CreditCardName:      creditCardStr,
-			TagIDs:              tagIDs,
-			Times:               times,
-			Date:                date,
-			AccountID:           account.ID,
+			Type:           entity.EntryTypeExpense,
+			Amount:         amount,
+			Currency:       currency,
+			Description:    description,
+			CategoryAlias:  categoryStr,
+			CreditCardName: creditCardStr,
+			Tags:           tags,
+			Times:          times,
+			Date:           date,
+			AccountName:    accountStr,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
 		}
 
-		allTags, err := tagRepo.GetAll()
-		if err != nil {
-			printer.PrintError(err.Error())
-			return
-		}
-		tagsMap := make(map[int64]*entity.Tag)
-		for _, tag := range allTags {
-			tagsMap[tag.ID] = tag
-		}
-
 		for _, entry := range result.Entries {
-			printer.PrintEntryWithCategory(entry, result.Category, tagsMap)
+			printer.PrintEntryWithCategory(entry, result.Category)
 		}
 	},
 }
 
 var addIncomeCmd = &cobra.Command{
-	Use:   "income [amount] --account <name> --date <YYYY-MM-DD> --description <text> [--category x] [--tags x,y]",
+	Use:   "income [amount] --account <name> --date <YYYY-MM-DD> --description <text> [--category <alias>] [--tags x,y]",
 	Short: "Add a new income",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -292,17 +246,6 @@ var addIncomeCmd = &cobra.Command{
 			return
 		}
 
-		accountRepo := factory.NewAccountsRepository()
-		account, err := accountRepo.GetByName(accountStr)
-		if err != nil {
-			printer.PrintError(err.Error())
-			return
-		}
-		if account == nil {
-			printer.PrintError("account not found: " + accountStr)
-			return
-		}
-
 		date := parseDate(dateStr)
 		currency := getDefaultCurrency()
 
@@ -311,50 +254,26 @@ var addIncomeCmd = &cobra.Command{
 		tagRepo := factory.NewTagsRepository()
 		ccRepo := factory.NewCreditCardsRepository()
 
-		tagNames := parseCommaSeparated(tagsStr)
-		var tagIDs []int64
-		for _, tagName := range tagNames {
-			tag, err := tagRepo.GetByName(tagName)
-			if err != nil {
-				printer.PrintError(err.Error())
-				return
-			}
-			if tag == nil {
-				printer.PrintError(fmt.Sprintf("tag not registered: %s. Run: myfin add tag %s", tagName, tagName))
-				return
-			}
-			tagIDs = append(tagIDs, tag.ID)
-		}
-
+		tags := parseCommaSeparated(tagsStr)
 		uc := usecase.NewAddEntry(entryRepo, categoryRepo, tagRepo, ccRepo)
 
 		result, err := uc.Execute(usecase.AddEntryInput{
-			Type:                entity.EntryTypeIncome,
-			Amount:              amount,
-			Currency:            currency,
-			Description:         description,
-			CategoryNameOrAlias: categoryStr,
-			TagIDs:              tagIDs,
-			Date:                date,
-			AccountID:           account.ID,
+			Type:          entity.EntryTypeIncome,
+			Amount:        amount,
+			Currency:      currency,
+			Description:   description,
+			CategoryAlias: categoryStr,
+			Tags:          tags,
+			Date:          date,
+			AccountName:   accountStr,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
 		}
 
-		allTags, err := tagRepo.GetAll()
-		if err != nil {
-			printer.PrintError(err.Error())
-			return
-		}
-		tagsMap := make(map[int64]*entity.Tag)
-		for _, tag := range allTags {
-			tagsMap[tag.ID] = tag
-		}
-
 		for _, entry := range result.Entries {
-			printer.PrintEntryWithCategory(entry, result.Category, tagsMap)
+			printer.PrintEntryWithCategory(entry, result.Category)
 		}
 	},
 }
@@ -381,7 +300,7 @@ var addTagCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Tag created: %s (ID: %d)\n", result.Tag.Name, result.Tag.ID)
+		fmt.Printf("Tag created: %s\n", result.Tag.Name)
 	},
 }
 
@@ -414,7 +333,7 @@ var listTagsCmd = &cobra.Command{
 
 		fmt.Println("Registered tags:")
 		for _, tag := range tags {
-			fmt.Printf("  %d: %s\n", tag.ID, tag.Name)
+			fmt.Printf("  %s\n", tag.Name)
 		}
 	},
 }
@@ -451,26 +370,12 @@ var reportEntriesCmd = &cobra.Command{
 			until = &t
 		}
 
-		filterTags := parseCommaSeparatedInt64(filterTagsStr)
+		filterTags := parseCommaSeparated(filterTagsStr)
 		filterCategories := parseCommaSeparated(filterCategoriesStr)
 
 		entryRepo := factory.NewEntriesRepository()
 		categoryRepo := factory.NewCategoriesRepository()
 		accountRepo := factory.NewAccountsRepository()
-
-		var accountID *int64
-		if accountStr != "" {
-			account, err := accountRepo.GetByName(accountStr)
-			if err != nil {
-				printer.PrintError(err.Error())
-				return
-			}
-			if account == nil {
-				printer.PrintError("account not found: " + accountStr)
-				return
-			}
-			accountID = &account.ID
-		}
 
 		report := usecase.NewReport(entryRepo, categoryRepo, accountRepo)
 
@@ -480,64 +385,51 @@ var reportEntriesCmd = &cobra.Command{
 			To:               until,
 			FilterTags:       filterTags,
 			FilterCategories: filterCategories,
-			AccountID:        accountID,
+			AccountName:      accountStr,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
 			return
 		}
 
-		categoryMap := make(map[int64]*entity.Category)
-		if accountID != nil {
-			categories, err := categoryRepo.GetAll(*accountID)
+		categoryMap := make(map[string]*entity.Category)
+		for _, acc := range result.Accounts {
+			categories, err := categoryRepo.GetAll(acc.Name)
 			if err != nil {
-				printer.PrintError(err.Error())
-				return
+				continue
 			}
 			for _, cat := range categories {
-				categoryMap[cat.ID] = cat
-			}
-		} else {
-			accounts, err := accountRepo.GetAll()
-			if err != nil {
-				printer.PrintError(err.Error())
-				return
-			}
-			for _, acc := range accounts {
-				categories, err := categoryRepo.GetAll(acc.ID)
-				if err != nil {
-					continue
-				}
-				for _, cat := range categories {
-					categoryMap[cat.ID] = cat
-				}
+				categoryMap[cat.Alias] = cat
 			}
 		}
 
 		entries := make([]*entity.Entry, 0)
 		for _, e := range result.Entries {
 			entry := &entity.Entry{
-				ID:              e.EntryID,
-				Type:            entity.EntryType(e.Type),
-				Amount:          e.Amount,
-				Currency:        e.Currency,
-				Description:     e.Description,
-				CategoryID:      e.CategoryID,
-				CreditCardID:    e.CreditCardID,
-				AccountID:       e.AccountID,
-				Installment:     e.Installment,
-				ParentEntryID:   e.ParentEntryID,
-				RealizationDate: e.RealizationDate,
-				PaymentDate:     e.PaymentDate,
-				TagIDs:          []int64{},
+				Type:              entity.EntryType(e.Type),
+				Amount:            e.Amount,
+				Currency:          e.Currency,
+				Description:       e.Description,
+				CategoryAlias:     e.CategoryAlias,
+				CreditCardName:    e.CreditCardName,
+				Tags:              e.Tags,
+				InstallmentNumber: e.InstallmentNumber,
+				InstallmentTotal:  e.InstallmentTotal,
+				RealizationDate:   e.RealizationDate,
+				PaymentDate:       e.PaymentDate,
 			}
 			entries = append(entries, entry)
 		}
 
+		accounts := make(map[string]*entity.Account)
+		for _, acc := range result.Accounts {
+			accounts[acc.Name] = acc
+		}
+
 		if format == "md" {
-			printer.PrintEntriesMarkdown(entries, categoryMap, result.Accounts, make(map[int64]*entity.Tag), result.TotalInstallments, accountID)
+			printer.PrintEntriesMarkdown(entries, categoryMap, accounts, accountStr)
 		} else {
-			printer.PrintEntriesTable(entries, categoryMap, result.Accounts, make(map[int64]*entity.Tag), result.TotalInstallments, accountID)
+			printer.PrintEntriesTable(entries, categoryMap, accounts, accountStr)
 		}
 	},
 }
@@ -590,16 +482,13 @@ var reportBalancesCmd = &cobra.Command{
 			}
 		}
 
-		accountBalances := make(map[int64]*cli.AccountBalance)
+		accountBalances := make(map[string]*cli.AccountBalance)
 
 		for _, acc := range accounts {
-			var accountID *int64
-			accountID = &acc.ID
-
 			entries, err := entryRepo.GetAll(&port.EntryFilters{
-				FromDate:  from,
-				ToDate:    until,
-				AccountID: accountID,
+				FromDate:    from,
+				ToDate:      until,
+				AccountName: acc.Name,
 			})
 			if err != nil {
 				printer.PrintError(err.Error())
@@ -615,7 +504,7 @@ var reportBalancesCmd = &cobra.Command{
 				}
 			}
 
-			accountBalances[acc.ID] = &cli.AccountBalance{
+			accountBalances[acc.Name] = &cli.AccountBalance{
 				Account:      acc,
 				TotalIncome:  totalIncome,
 				TotalExpense: totalExpense,
@@ -648,11 +537,9 @@ func init() {
 	reportCmd.AddCommand(reportEntriesCmd)
 	reportCmd.AddCommand(reportBalancesCmd)
 
-	rootCmd.PersistentFlags().StringVar(&dbFlag, "db", "", "database name (default or custom)")
-
 	addCategoryCmd.Flags().String("account", "", "account name (required)")
 	addCategoryCmd.Flags().StringP("type", "t", "", "category type (inc or exp)")
-	addCategoryCmd.Flags().String("alias", "", "category alias")
+	addCategoryCmd.Flags().String("alias", "", "category alias (required)")
 	addCategoryCmd.Flags().String("emoji", "", "category emoji")
 
 	addCreditCardCmd.Flags().Int("closing-day", 0, "closing day (1-31)")
@@ -661,7 +548,7 @@ func init() {
 	addExpenseCmd.Flags().String("account", "", "account name (required)")
 	addExpenseCmd.Flags().String("tags", "", "tag names (comma-separated)")
 	addExpenseCmd.Flags().String("date", "", "date (DD-MM-YY)")
-	addExpenseCmd.Flags().String("category", "", "category name or alias")
+	addExpenseCmd.Flags().String("category", "", "category alias")
 	addExpenseCmd.Flags().String("description", "", "description")
 	addExpenseCmd.Flags().String("credit-card", "", "credit card name")
 	addExpenseCmd.Flags().Int("times", 0, "number of installments")
@@ -669,7 +556,7 @@ func init() {
 	addIncomeCmd.Flags().String("account", "", "account name (required)")
 	addIncomeCmd.Flags().String("tags", "", "tag names (comma-separated)")
 	addIncomeCmd.Flags().String("date", "", "date (DD-MM-YY)")
-	addIncomeCmd.Flags().String("category", "", "category name or alias")
+	addIncomeCmd.Flags().String("category", "", "category alias")
 	addIncomeCmd.Flags().String("description", "", "description")
 
 	reportEntriesCmd.Flags().String("from", "", "start date (DD-MM-YY)")
@@ -685,21 +572,9 @@ func init() {
 	reportBalancesCmd.Flags().String("format", "table", "output format (table or md)")
 }
 
-func getDBManager() *database.Manager {
-	if dbManager == nil {
-		dbManager = database.NewManager(cfgLoader)
-	}
-	return dbManager
-}
-
-func getDB() (*sqlite.DB, error) {
-	mgr := getDBManager()
-	return mgr.GetDatabase(dbFlag)
-}
-
 func getFactory() (*persistence.RepositoryFactory, error) {
-	if repoFactory != nil {
-		return repoFactory, nil
+	if repo != nil {
+		return repo, nil
 	}
 
 	cfg, err := cfgLoader.Load()
@@ -707,17 +582,8 @@ func getFactory() (*persistence.RepositoryFactory, error) {
 		return nil, err
 	}
 
-	if cfg.StorageDriver == config.DriverSQLite {
-		db, err := getDB()
-		if err != nil {
-			return nil, err
-		}
-		repoFactory = persistence.NewRepositoryFactory(cfg, db.DB)
-	} else {
-		repoFactory = persistence.NewRepositoryFactory(cfg, nil)
-	}
-
-	return repoFactory, nil
+	repo = persistence.NewRepositoryFactory(cfg)
+	return repo, nil
 }
 
 func getDefaultCurrency() string {
@@ -764,26 +630,4 @@ func parseCommaSeparated(s string) []string {
 		}
 	}
 	return result
-}
-
-func parseCommaSeparatedInt64(s string) []int64 {
-	if s == "" {
-		return []int64{}
-	}
-	parts := strings.Split(s, ",")
-	result := make([]int64, 0, len(parts))
-	for _, p := range parts {
-		trimmed := strings.TrimSpace(p)
-		if trimmed != "" {
-			if id, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
-				result = append(result, id)
-			}
-		}
-	}
-	return result
-}
-
-func init() {
-	_ = filepath.Base
-	_ = persistence.NewMigrationManager
 }

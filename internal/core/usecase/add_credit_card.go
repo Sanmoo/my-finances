@@ -29,11 +29,9 @@ func (uc *AddCreditCard) Execute(input AddCreditCardInput) (*AddCreditCardOutput
 		return nil, err
 	}
 
-	id, err := uc.repo.Create(cc)
-	if err != nil {
+	if err := uc.repo.Create(cc); err != nil {
 		return nil, err
 	}
 
-	cc.ID = id
 	return &AddCreditCardOutput{CreditCard: cc}, nil
 }

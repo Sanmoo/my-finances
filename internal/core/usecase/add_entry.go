@@ -11,16 +11,16 @@ import (
 )
 
 type AddEntryInput struct {
-	Type                entity.EntryType
-	Amount              string
-	Currency            string
-	Description         string
-	CategoryNameOrAlias string
-	CreditCardName      string
-	TagIDs              []int64
-	Times               int
-	Date                time.Time
-	AccountID           int64
+	Type           entity.EntryType
+	Amount         string
+	Currency       string
+	Description    string
+	CategoryAlias  string
+	CreditCardName string
+	Tags           []string
+	Times          int
+	Date           time.Time
+	AccountName    string
 }
 
 type AddEntryOutput struct {
@@ -74,32 +74,31 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 		}
 	}
 
-	var categoryID *int64
 	var category *entity.Category
-	if input.CategoryNameOrAlias != "" {
-		cat, err := uc.categoryRepo.GetByNameOrAlias(input.AccountID, input.CategoryNameOrAlias)
+	var categoryAlias *string
+	if input.CategoryAlias != "" {
+		cat, err := uc.categoryRepo.GetByAlias(input.AccountName, input.CategoryAlias)
 		if err != nil {
 			return nil, fmt.Errorf("failed to find category: %w", err)
 		}
 		if cat == nil {
 			return nil, entity.ErrCategoryNotFound
 		}
-		categoryID = &cat.ID
 		category = cat
+		categoryAlias = &cat.Alias
 	}
 
-	for _, tagID := range input.TagIDs {
-		tag, err := uc.tagRepo.GetByID(tagID)
+	for _, tagName := range input.Tags {
+		tag, err := uc.tagRepo.GetByName(tagName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to validate tag ID %d: %w", tagID, err)
+			return nil, fmt.Errorf("failed to validate tag %s: %w", tagName, err)
 		}
 		if tag == nil {
-			return nil, fmt.Errorf("tag not registered: %d. Run: myfin add tag <name>", tagID)
+			return nil, fmt.Errorf("tag not registered: %s. Run: myfin add tag %s", tagName, tagName)
 		}
 	}
 
 	entries := make([]*entity.Entry, 0, input.Times)
-	var parentID *int64
 
 	for i := 0; i < input.Times; i++ {
 		date := input.Date
@@ -107,28 +106,22 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 			date = date.AddDate(0, 1, 0)
 		}
 
-		entry, err := uc.createEntry(input, amount, date, i+1, parentID, categoryID, creditCard)
+		entry, err := uc.createEntry(input, amount, date, i+1, categoryAlias, creditCard)
 		if err != nil {
 			return nil, err
 		}
 
-		id, err := uc.entryRepo.Create(entry)
-		if err != nil {
+		if err := uc.entryRepo.Create(entry, input.AccountName); err != nil {
 			return nil, err
 		}
 
-		entry.ID = id
 		entries = append(entries, entry)
-
-		if parentID == nil {
-			parentID = &entry.ID
-		}
 	}
 
 	return &AddEntryOutput{Entries: entries, Category: category}, nil
 }
 
-func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.Time, installment int, parentID *int64, categoryID *int64, creditCard *entity.CreditCard) (*entity.Entry, error) {
+func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.Time, installmentNumber int, categoryAlias *string, creditCard *entity.CreditCard) (*entity.Entry, error) {
 	var opts []entity.EntryOption
 
 	description := strings.TrimSpace(input.Description)
@@ -137,22 +130,20 @@ func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.T
 	}
 	opts = append(opts, entity.WithDescription(description))
 
-	if categoryID != nil {
-		opts = append(opts, entity.WithCategoryID(*categoryID))
+	if categoryAlias != nil {
+		opts = append(opts, entity.WithCategoryAlias(*categoryAlias))
 	}
 
 	if creditCard != nil {
 		opts = append(opts, entity.WithCreditCard(creditCard))
 	}
 
-	if len(input.TagIDs) > 0 {
-		opts = append(opts, entity.WithTagIDs(input.TagIDs))
+	if len(input.Tags) > 0 {
+		opts = append(opts, entity.WithTags(input.Tags))
 	}
 
-	opts = append(opts, entity.WithAccountID(input.AccountID))
-
-	if installment > 0 || parentID != nil {
-		opts = append(opts, entity.WithInstallment(installment, parentID))
+	if input.Times > 1 {
+		opts = append(opts, entity.WithInstallment(installmentNumber, input.Times))
 	}
 
 	entry, err := entity.NewEntry(input.Type, amount, input.Currency, date, opts...)

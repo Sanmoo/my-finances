@@ -22,20 +22,18 @@ const (
 )
 
 type Entry struct {
-	ID              int64
-	Type            EntryType
-	Amount          float64
-	Currency        string
-	Description     string
-	CategoryID      *int64
-	CreditCardID    *int64
-	AccountID       int64
-	Installment     int
-	ParentEntryID   *int64
-	RealizationDate time.Time
-	PaymentDate     *time.Time
-	CreatedAt       time.Time
-	TagIDs          []int64
+	Type              EntryType
+	Amount            float64
+	Currency          string
+	Description       string
+	CategoryAlias     *string
+	CreditCardName    *string
+	Tags              []string
+	InstallmentNumber int
+	InstallmentTotal  int
+	RealizationDate   time.Time
+	PaymentDate       *time.Time
+	CreatedAt         time.Time
 }
 
 func NewEntry(entryType EntryType, amount float64, currency string, realizationDate time.Time, opts ...EntryOption) (*Entry, error) {
@@ -58,7 +56,7 @@ func NewEntry(entryType EntryType, amount float64, currency string, realizationD
 		Currency:        strings.ToUpper(currency),
 		RealizationDate: realizationDate,
 		CreatedAt:       time.Now().UTC(),
-		TagIDs:          []int64{},
+		Tags:            []string{},
 	}
 
 	for _, opt := range opts {
@@ -76,46 +74,46 @@ func WithDescription(desc string) EntryOption {
 	}
 }
 
-func WithCategoryID(id int64) EntryOption {
+func WithCategoryAlias(alias string) EntryOption {
 	return func(e *Entry) {
-		e.CategoryID = &id
+		e.CategoryAlias = &alias
 	}
 }
 
 func WithCreditCard(cc *CreditCard) EntryOption {
 	return func(e *Entry) {
-		e.CreditCardID = &cc.ID
+		e.CreditCardName = &cc.Name
 		paymentDate := cc.CalculatePaymentDate(e.RealizationDate)
 		e.PaymentDate = &paymentDate
 	}
 }
 
-func WithTagIDs(tagIDs []int64) EntryOption {
+func WithTags(tags []string) EntryOption {
 	return func(e *Entry) {
-		e.TagIDs = tagIDs
+		e.Tags = tags
 	}
 }
 
-func WithAccountID(accountID int64) EntryOption {
+func WithInstallment(number, total int) EntryOption {
 	return func(e *Entry) {
-		e.AccountID = accountID
+		e.InstallmentNumber = number
+		e.InstallmentTotal = total
 	}
 }
 
-func WithInstallment(installment int, parentEntryID *int64) EntryOption {
+func WithPaymentDate(date time.Time) EntryOption {
 	return func(e *Entry) {
-		e.Installment = installment
-		e.ParentEntryID = parentEntryID
+		e.PaymentDate = &date
 	}
 }
 
-func (e *Entry) AddTagID(tagID int64) {
-	for _, id := range e.TagIDs {
-		if id == tagID {
+func (e *Entry) AddTag(tag string) {
+	for _, t := range e.Tags {
+		if t == tag {
 			return
 		}
 	}
-	e.TagIDs = append(e.TagIDs, tagID)
+	e.Tags = append(e.Tags, tag)
 }
 
 func (e *Entry) IsExpense() bool {

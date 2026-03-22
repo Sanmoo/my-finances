@@ -12,35 +12,32 @@ type ReportInput struct {
 	Format           string
 	From             *time.Time
 	To               *time.Time
-	FilterTags       []int64
+	FilterTags       []string
 	FilterCategories []string
-	AccountID        *int64
+	AccountName      string
 }
 
 type ReportOutput struct {
-	Entries           []*EntryWithCategory
-	Accounts          map[int64]*entity.Account
-	TotalIncome       float64
-	TotalExpense      float64
-	TotalInstallments map[int64]int
+	Entries      []*EntryWithCategory
+	Accounts     []*entity.Account
+	TotalIncome  float64
+	TotalExpense float64
 }
 
 type EntryWithCategory struct {
-	EntryID         int64
-	Type            string
-	Amount          float64
-	Currency        string
-	Description     string
-	CategoryID      *int64
-	CategoryName    string
-	CreditCardID    *int64
-	AccountID       int64
-	AccountName     string
-	Installment     int
-	ParentEntryID   *int64
-	RealizationDate time.Time
-	PaymentDate     *time.Time
-	Tags            []string
+	Type              string
+	Amount            float64
+	Currency          string
+	Description       string
+	CategoryAlias     *string
+	CategoryName      string
+	CreditCardName    *string
+	AccountName       string
+	InstallmentNumber int
+	InstallmentTotal  int
+	RealizationDate   time.Time
+	PaymentDate       *time.Time
+	Tags              []string
 }
 
 type Report struct {
@@ -59,9 +56,9 @@ func NewReport(entryRepo port.EntriesRepository, categoryRepo port.CategoriesRep
 
 func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 	filters := &port.EntryFilters{
-		FromDate:  input.From,
-		ToDate:    input.To,
-		AccountID: input.AccountID,
+		FromDate:    input.From,
+		ToDate:      input.To,
+		AccountName: input.AccountName,
 	}
 
 	if len(input.FilterTags) > 0 {
@@ -73,51 +70,33 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 		return nil, fmt.Errorf("failed to get entries: %w", err)
 	}
 
-	categoryMap := make(map[int64]*entity.Category)
-	accountMap := make(map[int64]*entity.Account)
+	categoryMap := make(map[string]*entity.Category)
 
-	allAccounts, err := uc.accountRepo.GetAll()
+	accounts, err := uc.accountRepo.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get accounts: %w", err)
 	}
-	for _, acc := range allAccounts {
-		accountMap[acc.ID] = acc
-	}
 
-	if input.AccountID != nil {
-		categories, err := uc.categoryRepo.GetAll(*input.AccountID)
+	for _, acc := range accounts {
+		categories, err := uc.categoryRepo.GetAll(acc.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get categories: %w", err)
+			continue
 		}
 		for _, cat := range categories {
-			categoryMap[cat.ID] = cat
-		}
-	} else {
-		for _, acc := range allAccounts {
-			categories, err := uc.categoryRepo.GetAll(acc.ID)
-			if err != nil {
-				continue
-			}
-			for _, cat := range categories {
-				categoryMap[cat.ID] = cat
-			}
+			categoryMap[cat.Alias] = cat
 		}
 	}
 
-	totalInstallments := uc.calculateTotalInstallments(entries)
-
 	output := &ReportOutput{
-		Entries:           make([]*EntryWithCategory, 0),
-		Accounts:          accountMap,
-		TotalInstallments: totalInstallments,
+		Entries: make([]*EntryWithCategory, 0),
 	}
 
 	for _, entry := range entries {
 		if len(input.FilterCategories) > 0 {
-			if entry.CategoryID == nil {
+			if entry.CategoryAlias == nil {
 				continue
 			}
-			cat, ok := categoryMap[*entry.CategoryID]
+			cat, ok := categoryMap[*entry.CategoryAlias]
 			if !ok {
 				continue
 			}
@@ -127,29 +106,24 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 		}
 
 		entryWithCat := &EntryWithCategory{
-			EntryID:         entry.ID,
-			Type:            string(entry.Type),
-			Amount:          entry.Amount,
-			Currency:        entry.Currency,
-			Description:     entry.Description,
-			CategoryID:      entry.CategoryID,
-			CreditCardID:    entry.CreditCardID,
-			AccountID:       entry.AccountID,
-			Installment:     entry.Installment,
-			ParentEntryID:   entry.ParentEntryID,
-			RealizationDate: entry.RealizationDate,
-			PaymentDate:     entry.PaymentDate,
-			Tags:            []string{},
+			Type:              string(entry.Type),
+			Amount:            entry.Amount,
+			Currency:          entry.Currency,
+			Description:       entry.Description,
+			CategoryAlias:     entry.CategoryAlias,
+			CreditCardName:    entry.CreditCardName,
+			AccountName:       input.AccountName,
+			InstallmentNumber: entry.InstallmentNumber,
+			InstallmentTotal:  entry.InstallmentTotal,
+			RealizationDate:   entry.RealizationDate,
+			PaymentDate:       entry.PaymentDate,
+			Tags:              entry.Tags,
 		}
 
-		if entry.CategoryID != nil {
-			if cat, ok := categoryMap[*entry.CategoryID]; ok {
+		if entry.CategoryAlias != nil {
+			if cat, ok := categoryMap[*entry.CategoryAlias]; ok {
 				entryWithCat.CategoryName = cat.Name
 			}
-		}
-
-		if acc, ok := accountMap[entry.AccountID]; ok {
-			entryWithCat.AccountName = acc.Name
 		}
 
 		if entry.IsIncome() {
@@ -161,23 +135,9 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 		output.Entries = append(output.Entries, entryWithCat)
 	}
 
+	output.Accounts = accounts
+
 	return output, nil
-}
-
-func (uc *Report) calculateTotalInstallments(entries []*entity.Entry) map[int64]int {
-	result := make(map[int64]int)
-
-	for _, entry := range entries {
-		var groupID int64
-		if entry.ParentEntryID != nil {
-			groupID = *entry.ParentEntryID
-		} else {
-			groupID = entry.ID
-		}
-		result[groupID]++
-	}
-
-	return result
 }
 
 func (uc *Report) matchesCategoryFilter(cat *entity.Category, filter []string) bool {
@@ -185,7 +145,7 @@ func (uc *Report) matchesCategoryFilter(cat *entity.Category, filter []string) b
 		if cat.Name == f {
 			return true
 		}
-		if cat.Alias != nil && *cat.Alias == f {
+		if cat.Alias == f {
 			return true
 		}
 	}

@@ -11,7 +11,6 @@ var (
 )
 
 type CreditCard struct {
-	ID         int64
 	Name       string
 	ClosingDay int
 	DueDay     int

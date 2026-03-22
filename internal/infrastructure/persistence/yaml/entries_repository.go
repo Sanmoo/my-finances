@@ -15,72 +15,28 @@ type EntriesRepository struct {
 	basePath string
 }
 
-type EntriesData struct {
-	Entries []Entry `yaml:"entries"`
-}
-
 func NewEntriesRepository(basePath string) *EntriesRepository {
 	return &EntriesRepository{basePath: basePath}
 }
 
 func (r *EntriesRepository) filePath(accountName string, year int, month time.Month) string {
-	return filepath.Join(r.basePath, accountName, fmt.Sprintf("%d", year),
+	return filepath.Join(r.basePath, accountName,
+		fmt.Sprintf("%d", year),
 		fmt.Sprintf("%d-%02d-%s-entries.yaml", year, month, accountName))
 }
 
-func (r *EntriesRepository) metaPath(accountName string) string {
-	return filepath.Join(r.basePath, accountName, "_meta.yaml")
-}
-
-func (r *EntriesRepository) getEntryFilePath(entry *entity.Entry, accounts []Account) (string, error) {
-	accountName := ""
-	for _, acc := range accounts {
-		if acc.ID == entry.AccountID {
-			accountName = acc.Name
-			break
-		}
-	}
-	if accountName == "" {
-		return "", fmt.Errorf("account not found for entry")
-	}
-	return r.filePath(accountName, entry.RealizationDate.Year(), entry.RealizationDate.Month()), nil
-}
-
-func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
-	accounts, err := Read[AccountsData](filepath.Join(r.basePath, "accounts.yaml"))
-	if err != nil {
-		return 0, err
-	}
-
-	accountName := ""
-	for _, acc := range accounts.Accounts {
-		if acc.ID == entry.AccountID {
-			accountName = acc.Name
-			break
-		}
-	}
-	if accountName == "" {
-		return 0, fmt.Errorf("account not found for entry")
-	}
-
+func (r *EntriesRepository) Create(entry *entity.Entry, accountName string) error {
 	path := r.filePath(accountName, entry.RealizationDate.Year(), entry.RealizationDate.Month())
 
-	if err := EnsureMetaFile(r.metaPath(accountName)); err != nil {
-		return 0, err
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
 	}
-
-	nextID, err := GetNextID(r.metaPath(accountName), "entries")
-	if err != nil {
-		return 0, err
-	}
-
-	entry.ID = nextID
 
 	data := &EntriesData{}
 	if _, err := os.Stat(path); err == nil {
 		readData, err := Read[EntriesData](path)
 		if err != nil {
-			return 0, err
+			return err
 		}
 		data = readData
 	}
@@ -108,9 +64,6 @@ func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
 		if pd1 == nil && pd2 == nil {
 			t1, _ := time.Parse("2006-01-02", e1.RealizationDate)
 			t2, _ := time.Parse("2006-01-02", e2.RealizationDate)
-			if t1.Equal(t2) {
-				return e1.ID < e2.ID
-			}
 			return t1.Before(t2)
 		}
 		if pd1 == nil {
@@ -124,42 +77,16 @@ func (r *EntriesRepository) Create(entry *entity.Entry) (int64, error) {
 		if pd1.Equal(*pd2) {
 			t1, _ := time.Parse("2006-01-02", e1.RealizationDate)
 			t2, _ := time.Parse("2006-01-02", e2.RealizationDate)
-			if t1.Equal(t2) {
-				return e1.ID < e2.ID
-			}
 			return t1.Before(t2)
 		}
 		return pd1.Before(*pd2)
 	})
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return 0, fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	if err := Write(path, data); err != nil {
-		return 0, err
-	}
-
-	return entry.ID, nil
-}
-
-func (r *EntriesRepository) GetByID(id int64) (*entity.Entry, error) {
-	entries, err := r.GetAll(&port.EntryFilters{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, entry := range entries {
-		if entry.ID == id {
-			return entry, nil
-		}
-	}
-
-	return nil, nil
+	return Write(path, data)
 }
 
 func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry, error) {
-	accounts, err := Read[AccountsData](filepath.Join(r.basePath, "accounts.yaml"))
+	accountsData, err := Read[AccountsData](filepath.Join(r.basePath, "accounts.yaml"))
 	if err != nil {
 		return nil, err
 	}
@@ -168,8 +95,8 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 	currentYear := time.Now().Year()
 	currentMonth := time.Now().Month()
 
-	for _, acc := range accounts.Accounts {
-		if filters != nil && filters.AccountID != nil && *filters.AccountID != acc.ID {
+	for _, accountName := range accountsData.Accounts {
+		if filters != nil && filters.AccountName != "" && filters.AccountName != accountName {
 			continue
 		}
 
@@ -178,7 +105,7 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 				if year == currentYear+1 && month > currentMonth {
 					break
 				}
-				path := r.filePath(acc.Name, year, month)
+				path := r.filePath(accountName, year, month)
 				if _, err := os.Stat(path); os.IsNotExist(err) {
 					continue
 				}
@@ -191,9 +118,6 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 				for i := range data.Entries {
 					entry := data.Entries[i].ToEntity()
 					if filters != nil {
-						if filters.AccountID != nil && *filters.AccountID != entry.AccountID {
-							continue
-						}
 						if filters.Type != nil && entry.Type != *filters.Type {
 							continue
 						}
@@ -209,11 +133,21 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 								continue
 							}
 						}
-						if len(filters.CategoryIDs) > 0 {
+						if filters.CategoryAlias != "" {
+							if entry.CategoryAlias == nil || *entry.CategoryAlias != filters.CategoryAlias {
+								continue
+							}
+						}
+						if len(filters.Tags) > 0 {
 							found := false
-							for _, catID := range filters.CategoryIDs {
-								if entry.CategoryID != nil && *entry.CategoryID == catID {
-									found = true
+							for _, filterTag := range filters.Tags {
+								for _, entryTag := range entry.Tags {
+									if entryTag == filterTag {
+										found = true
+										break
+									}
+								}
+								if found {
 									break
 								}
 							}
@@ -221,10 +155,12 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 								continue
 							}
 						}
+						if filters.CreditCard != "" {
+							if entry.CreditCardName == nil || *entry.CreditCardName != filters.CreditCard {
+								continue
+							}
+						}
 					}
-
-					// Tag filtering disabled - now uses TagIDs instead of tag names
-					// TODO: Implement tag ID filtering if needed
 
 					entries = append(entries, entry)
 				}
@@ -245,9 +181,6 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 		}
 
 		if pd1 == nil && pd2 == nil {
-			if e1.RealizationDate.Equal(e2.RealizationDate) {
-				return e1.ID < e2.ID
-			}
 			return e1.RealizationDate.Before(e2.RealizationDate)
 		}
 		if pd1 == nil {
@@ -257,94 +190,12 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 			return e1.RealizationDate.Before(*pd1)
 		}
 		if pd1.Equal(*pd2) {
-			if e1.RealizationDate.Equal(e2.RealizationDate) {
-				return e1.ID < e2.ID
-			}
 			return e1.RealizationDate.Before(e2.RealizationDate)
 		}
 		return pd1.Before(*pd2)
 	})
 
 	return entries, nil
-}
-
-func (r *EntriesRepository) Update(entry *entity.Entry) error {
-	accounts, err := Read[AccountsData](filepath.Join(r.basePath, "accounts.yaml"))
-	if err != nil {
-		return err
-	}
-
-	path, err := r.getEntryFilePath(entry, accounts.Accounts)
-	if err != nil {
-		return err
-	}
-
-	data, err := Read[EntriesData](path)
-	if err != nil {
-		return err
-	}
-
-	found := false
-	for i := range data.Entries {
-		if data.Entries[i].ID == entry.ID {
-			data.Entries[i].FromEntity(entry)
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		return fmt.Errorf("entry not found: %d", entry.ID)
-	}
-
-	return Write(path, data)
-}
-
-func (r *EntriesRepository) Delete(id int64) error {
-	entries, err := r.GetAll(&port.EntryFilters{})
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		if entry.ID == id {
-			return r.Update(entry)
-		}
-	}
-
-	return fmt.Errorf("entry not found: %d", id)
-}
-
-func (r *EntriesRepository) AddTag(entryID int64, tagID int64) error {
-	entry, err := r.GetByID(entryID)
-	if err != nil {
-		return err
-	}
-	if entry == nil {
-		return fmt.Errorf("entry not found: %d", entryID)
-	}
-
-	entry.AddTagID(tagID)
-	return r.Update(entry)
-}
-
-func (r *EntriesRepository) RemoveTag(entryID int64, tagID int64) error {
-	entry, err := r.GetByID(entryID)
-	if err != nil {
-		return err
-	}
-	if entry == nil {
-		return fmt.Errorf("entry not found: %d", entryID)
-	}
-
-	newTagIDs := make([]int64, 0)
-	for _, id := range entry.TagIDs {
-		if id != tagID {
-			newTagIDs = append(newTagIDs, id)
-		}
-	}
-	entry.TagIDs = newTagIDs
-	return r.Update(entry)
 }
 
 func (r *EntriesRepository) EnsureInitialized() error {

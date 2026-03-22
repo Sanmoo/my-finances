@@ -12,15 +12,6 @@ type TagsRepository struct {
 	basePath string
 }
 
-type Tag struct {
-	ID   int64  `yaml:"id"`
-	Name string `yaml:"name"`
-}
-
-type TagsData struct {
-	Tags []Tag `yaml:"tags"`
-}
-
 func NewTagsRepository(basePath string) *TagsRepository {
 	return &TagsRepository{basePath: basePath}
 }
@@ -29,63 +20,17 @@ func (r *TagsRepository) filePath() string {
 	return filepath.Join(r.basePath, "tags.yaml")
 }
 
-func (r *TagsRepository) metaPath() string {
-	return filepath.Join(r.basePath, "_meta.yaml")
-}
-
-func (r *TagsRepository) Create(tag *entity.Tag) (int64, error) {
-	if err := EnsureMetaFile(r.metaPath()); err != nil {
-		return 0, err
-	}
-
-	nextID, err := GetNextID(r.metaPath(), "tags")
-	if err != nil {
-		return 0, err
-	}
-
-	tag.ID = nextID
-
-	data := &TagsData{}
-	if _, err := os.Stat(r.filePath()); err == nil {
-		readData, err := Read[TagsData](r.filePath())
-		if err != nil {
-			return 0, err
-		}
-		data = readData
-	}
-
-	yamlTag := Tag{
-		ID:   tag.ID,
-		Name: tag.Name,
-	}
-	data.Tags = append(data.Tags, yamlTag)
-
-	if err := Write(r.filePath(), data); err != nil {
-		return 0, err
-	}
-
-	return tag.ID, nil
-}
-
-func (r *TagsRepository) GetByID(id int64) (*entity.Tag, error) {
+func (r *TagsRepository) Create(tag *entity.Tag) error {
 	data, err := Read[TagsData](r.filePath())
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
+		return err
 	}
 
-	for _, t := range data.Tags {
-		if t.ID == id {
-			return &entity.Tag{
-				ID:   t.ID,
-				Name: t.Name,
-			}, nil
-		}
-	}
+	yamlTag := Tag{}
+	yamlTag.FromEntity(tag)
+	data.Tags = append(data.Tags, yamlTag)
 
-	return nil, nil
+	return Write(r.filePath(), data)
 }
 
 func (r *TagsRepository) GetByName(name string) (*entity.Tag, error) {
@@ -102,7 +47,6 @@ func (r *TagsRepository) GetByName(name string) (*entity.Tag, error) {
 	for _, t := range data.Tags {
 		if t.Name == name {
 			return &entity.Tag{
-				ID:   t.ID,
 				Name: t.Name,
 			}, nil
 		}
@@ -123,7 +67,6 @@ func (r *TagsRepository) GetAll() ([]*entity.Tag, error) {
 	tags := make([]*entity.Tag, 0, len(data.Tags))
 	for _, t := range data.Tags {
 		tags = append(tags, &entity.Tag{
-			ID:   t.ID,
 			Name: t.Name,
 		})
 	}
@@ -132,6 +75,10 @@ func (r *TagsRepository) GetAll() ([]*entity.Tag, error) {
 }
 
 func (r *TagsRepository) EnsureInitialized() error {
+	path := r.filePath()
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return Write(path, TagsData{Tags: []Tag{}})
+	}
 	return nil
 }
 

@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrInvalidCategoryType = errors.New("category type must be 'inc' or 'exp'")
 	ErrEmptyCategoryName   = errors.New("category name cannot be empty")
+	ErrEmptyCategoryAlias  = errors.New("category alias cannot be empty")
 	ErrCategoryNotFound    = errors.New("category not found")
 )
 
@@ -16,27 +17,31 @@ const (
 )
 
 type Category struct {
-	ID        int64
-	AccountID int64
-	Name      string
-	Alias     *string
-	Emoji     *string
-	Type      CategoryType
+	Name  string
+	Alias string
+	Emoji *string
+	Type  CategoryType
 }
 
-func NewCategory(accountID int64, name string, catType CategoryType, opts ...CategoryOption) (*Category, error) {
+func NewCategory(name, alias string, catType CategoryType, opts ...CategoryOption) (*Category, error) {
 	name = TrimLower(name)
 	if name == "" {
 		return nil, ErrEmptyCategoryName
 	}
+
+	alias = TrimLower(alias)
+	if alias == "" {
+		return nil, ErrEmptyCategoryAlias
+	}
+
 	if catType != CategoryTypeIncome && catType != CategoryTypeExpense {
 		return nil, ErrInvalidCategoryType
 	}
 
 	cat := &Category{
-		AccountID: accountID,
-		Name:      name,
-		Type:      catType,
+		Name:  name,
+		Alias: alias,
+		Type:  catType,
 	}
 
 	for _, opt := range opts {
@@ -47,15 +52,6 @@ func NewCategory(accountID int64, name string, catType CategoryType, opts ...Cat
 }
 
 type CategoryOption func(*Category)
-
-func WithAlias(alias string) CategoryOption {
-	return func(c *Category) {
-		alias = TrimLower(alias)
-		if alias != "" {
-			c.Alias = &alias
-		}
-	}
-}
 
 func WithEmoji(emoji string) CategoryOption {
 	return func(c *Category) {

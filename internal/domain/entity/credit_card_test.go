@@ -71,7 +71,6 @@ func TestNewCreditCard(t *testing.T) {
 
 func TestCreditCard_CalculatePaymentDate(t *testing.T) {
 	cc := &CreditCard{
-		ID:         1,
 		Name:       "Test Card",
 		ClosingDay: 9,
 		DueDay:     16,
@@ -120,7 +119,6 @@ func TestCreditCard_CalculatePaymentDate(t *testing.T) {
 
 func TestCreditCard_CalculateInstallmentPaymentDate(t *testing.T) {
 	cc := &CreditCard{
-		ID:         1,
 		Name:       "Test Card",
 		ClosingDay: 9,
 		DueDay:     16,

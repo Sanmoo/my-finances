@@ -66,31 +66,31 @@ func (p *Printer) PrintCreditCard(cc *entity.CreditCard) {
 	fmt.Fprintln(p.output, p.formatter.FormatCreditCard(cc))
 }
 
-func (p *Printer) PrintEntry(entry *entity.Entry, tags map[int64]*entity.Tag) {
-	fmt.Fprintln(p.output, p.formatter.FormatEntry(entry, tags))
+func (p *Printer) PrintEntry(entry *entity.Entry) {
+	fmt.Fprintln(p.output, p.formatter.FormatEntry(entry))
 }
 
-func (p *Printer) PrintEntryWithCategory(entry *entity.Entry, category *entity.Category, tags map[int64]*entity.Tag) {
-	fmt.Fprintln(p.output, p.formatter.FormatEntryWithCategory(entry, category, tags))
+func (p *Printer) PrintEntryWithCategory(entry *entity.Entry, category *entity.Category) {
+	fmt.Fprintln(p.output, p.formatter.FormatEntryWithCategory(entry, category))
 }
 
-func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[int64]*entity.Category, accounts map[int64]*entity.Account, tags map[int64]*entity.Tag, totalInstallments map[int64]int, filteredAccountID *int64) {
-	fmt.Fprint(p.output, p.formatter.FormatEntriesTable(entries, categories, accounts, tags, totalInstallments, filteredAccountID))
+func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[string]*entity.Category, accounts map[string]*entity.Account, filteredAccount string) {
+	fmt.Fprint(p.output, p.formatter.FormatEntriesTable(entries, categories, accounts, filteredAccount))
 }
 
-func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, accounts map[int64]*entity.Account, tags map[int64]*entity.Tag, totalInstallments map[int64]int, filteredAccountID *int64) {
-	fmt.Fprint(p.output, p.formatter.FormatEntriesMarkdown(entries, categories, accounts, tags, totalInstallments, filteredAccountID))
+func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[string]*entity.Category, accounts map[string]*entity.Account, filteredAccount string) {
+	fmt.Fprint(p.output, p.formatter.FormatEntriesMarkdown(entries, categories, accounts, filteredAccount))
 }
 
-func (p *Printer) PrintReportMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, from, to *time.Time) {
-	fmt.Fprint(p.output, p.formatter.FormatReportMarkdown(entries, categories, tags, from, to))
+func (p *Printer) PrintReportMarkdown(entries []*entity.Entry, categories map[string]*entity.Category, from, to *time.Time) {
+	fmt.Fprint(p.output, p.formatter.FormatReportMarkdown(entries, categories, from, to))
 }
 
-func (p *Printer) PrintBalancesTable(accounts []*entity.Account, accountBalances map[int64]*AccountBalance, from, to *time.Time) {
+func (p *Printer) PrintBalancesTable(accounts []*entity.Account, accountBalances map[string]*AccountBalance, from, to *time.Time) {
 	fmt.Fprint(p.output, p.formatter.FormatBalancesTable(accounts, accountBalances, from, to))
 }
 
-func (p *Printer) PrintBalancesMarkdown(accounts []*entity.Account, accountBalances map[int64]*AccountBalance, from, to *time.Time) {
+func (p *Printer) PrintBalancesMarkdown(accounts []*entity.Account, accountBalances map[string]*AccountBalance, from, to *time.Time) {
 	fmt.Fprint(p.output, p.formatter.FormatBalancesMarkdown(accounts, accountBalances, from, to))
 }
 

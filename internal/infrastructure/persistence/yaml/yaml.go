@@ -60,16 +60,6 @@ func (d *DateTime) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-type Meta struct {
-	NextIDs struct {
-		Accounts    int64 `yaml:"accounts"`
-		Categories  int64 `yaml:"categories"`
-		CreditCards int64 `yaml:"credit_cards"`
-		Entries     int64 `yaml:"entries"`
-		Tags        int64 `yaml:"tags"`
-	} `yaml:"next_ids"`
-}
-
 var (
 	mu   sync.Mutex
 	data map[string]*yaml.Node
@@ -83,10 +73,6 @@ func Init(basePath string) error {
 
 	if err := os.MkdirAll(basePath, 0755); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
-	}
-
-	if err := loadFile(filepath.Join(basePath, "_meta.yaml")); err != nil && !os.IsNotExist(err) {
-		return err
 	}
 
 	return nil
@@ -177,85 +163,6 @@ func Append[T any](path string, item T) error {
 	return nil
 }
 
-func GetNextID(metaPath string, entity string) (int64, error) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	var meta Meta
-	content, err := os.ReadFile(metaPath)
-	if err != nil && !os.IsNotExist(err) {
-		return 0, fmt.Errorf("failed to read meta file: %w", err)
-	}
-
-	if len(content) > 0 {
-		if err := yaml.Unmarshal(content, &meta); err != nil {
-			return 0, fmt.Errorf("failed to unmarshal meta: %w", err)
-		}
-	}
-
-	// Initialize Tags counter if not present (backward compatibility)
-	if meta.NextIDs.Tags == 0 {
-		meta.NextIDs.Tags = 1
-	}
-
-	var nextID int64
-	switch entity {
-	case "accounts":
-		nextID = meta.NextIDs.Accounts
-		meta.NextIDs.Accounts++
-	case "categories":
-		nextID = meta.NextIDs.Categories
-		meta.NextIDs.Categories++
-	case "credit_cards":
-		nextID = meta.NextIDs.CreditCards
-		meta.NextIDs.CreditCards++
-	case "entries":
-		nextID = meta.NextIDs.Entries
-		meta.NextIDs.Entries++
-	case "tags":
-		nextID = meta.NextIDs.Tags
-		meta.NextIDs.Tags++
-	default:
-		return 0, fmt.Errorf("unknown entity: %s", entity)
-	}
-
-	newContent, err := yaml.Marshal(meta)
-	if err != nil {
-		return 0, fmt.Errorf("failed to marshal meta: %w", err)
-	}
-
-	if err := os.WriteFile(metaPath, newContent, 0644); err != nil {
-		return 0, fmt.Errorf("failed to write meta file: %w", err)
-	}
-
-	return nextID, nil
-}
-
-func EnsureMetaFile(metaPath string) error {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if err := os.MkdirAll(filepath.Dir(metaPath), 0755); err != nil {
-		return fmt.Errorf("failed to create data directory: %w", err)
-	}
-
-	if _, err := os.Stat(metaPath); os.IsNotExist(err) {
-		meta := Meta{}
-		meta.NextIDs.Accounts = 1
-		meta.NextIDs.Categories = 1
-		meta.NextIDs.CreditCards = 1
-		meta.NextIDs.Entries = 1
-		meta.NextIDs.Tags = 1
-
-		content, err := yaml.Marshal(meta)
-		if err != nil {
-			return fmt.Errorf("failed to marshal meta: %w", err)
-		}
-
-		if err := os.WriteFile(metaPath, content, 0644); err != nil {
-			return fmt.Errorf("failed to write meta file: %w", err)
-		}
-	}
-
-	return nil
+func EnsureDir(path string) error {
+	return os.MkdirAll(filepath.Dir(path), 0755)
 }

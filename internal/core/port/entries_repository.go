@@ -7,21 +7,16 @@ import (
 )
 
 type EntriesRepository interface {
-	Create(entry *entity.Entry) (int64, error)
-	GetByID(id int64) (*entity.Entry, error)
+	Create(entry *entity.Entry, accountName string) error
 	GetAll(filters *EntryFilters) ([]*entity.Entry, error)
-	Update(entry *entity.Entry) error
-	Delete(id int64) error
-	AddTag(entryID int64, tagID int64) error
-	RemoveTag(entryID int64, tagID int64) error
 }
 
 type EntryFilters struct {
-	FromDate     *time.Time
-	ToDate       *time.Time
-	Type         *entity.EntryType
-	CategoryIDs  []int64
-	Tags         []int64
-	CreditCardID *int64
-	AccountID    *int64
+	FromDate      *time.Time
+	ToDate        *time.Time
+	Type          *entity.EntryType
+	CategoryAlias string
+	Tags          []string
+	CreditCard    string
+	AccountName   string
 }

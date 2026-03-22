@@ -27,11 +27,9 @@ func (uc *AddAccount) Execute(input AddAccountInput) (*AddAccountOutput, error) 
 		return nil, err
 	}
 
-	id, err := uc.repo.Create(account)
-	if err != nil {
+	if err := uc.repo.Create(account); err != nil {
 		return nil, err
 	}
 
-	account.ID = id
 	return &AddAccountOutput{Account: account}, nil
 }

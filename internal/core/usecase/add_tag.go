@@ -27,11 +27,9 @@ func (uc *AddTag) Execute(input AddTagInput) (*AddTagOutput, error) {
 		return nil, err
 	}
 
-	id, err := uc.repo.Create(tag)
-	if err != nil {
+	if err := uc.repo.Create(tag); err != nil {
 		return nil, err
 	}
 
-	tag.ID = id
 	return &AddTagOutput{Tag: tag}, nil
 }

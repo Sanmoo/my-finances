@@ -14,59 +14,26 @@ type MockEntriesRepository struct {
 	mock.Mock
 }
 
-func (m *MockEntriesRepository) Create(entry *entity.Entry) (int64, error) {
-	args := m.Called(entry)
-	return args.Get(0).(int64), args.Error(1)
-}
-
-func (m *MockEntriesRepository) GetByID(id int64) (*entity.Entry, error) {
-	args := m.Called(id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*entity.Entry), args.Error(1)
+func (m *MockEntriesRepository) Create(entry *entity.Entry, accountName string) error {
+	args := m.Called(entry, accountName)
+	return args.Error(0)
 }
 
 func (m *MockEntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry, error) {
 	args := m.Called(filters)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*entity.Entry), args.Error(1)
-}
-
-func (m *MockEntriesRepository) Update(entry *entity.Entry) error {
-	args := m.Called(entry)
-	return args.Error(0)
-}
-
-func (m *MockEntriesRepository) Delete(id int64) error {
-	args := m.Called(id)
-	return args.Error(0)
-}
-
-func (m *MockEntriesRepository) AddTag(entryID int64, tagID int64) error {
-	args := m.Called(entryID, tagID)
-	return args.Error(0)
-}
-
-func (m *MockEntriesRepository) RemoveTag(entryID int64, tagID int64) error {
-	args := m.Called(entryID, tagID)
-	return args.Error(0)
 }
 
 type MockTagsRepository struct {
 	mock.Mock
 }
 
-func (m *MockTagsRepository) Create(tag *entity.Tag) (int64, error) {
+func (m *MockTagsRepository) Create(tag *entity.Tag) error {
 	args := m.Called(tag)
-	return args.Get(0).(int64), args.Error(1)
-}
-
-func (m *MockTagsRepository) GetByID(id int64) (*entity.Tag, error) {
-	args := m.Called(id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*entity.Tag), args.Error(1)
+	return args.Error(0)
 }
 
 func (m *MockTagsRepository) GetByName(name string) (*entity.Tag, error) {
@@ -90,7 +57,7 @@ func TestAddEntry_Execute(t *testing.T) {
 		mockCCRepo := new(MockCreditCardsRepository)
 		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockTagRepo, mockCCRepo)
 
-		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry")).Return(int64(1), nil)
+		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry"), "test-account").Return(nil)
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{
@@ -99,12 +66,12 @@ func TestAddEntry_Execute(t *testing.T) {
 			Currency:    "BRL",
 			Description: "Test expense",
 			Date:        date,
+			AccountName: "test-account",
 		})
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Len(t, result.Entries, 1)
-		assert.Equal(t, int64(1), result.Entries[0].ID)
 		assert.Equal(t, 50.00, result.Entries[0].Amount)
 
 		mockEntryRepo.AssertExpectations(t)
@@ -117,7 +84,7 @@ func TestAddEntry_Execute(t *testing.T) {
 		mockCCRepo := new(MockCreditCardsRepository)
 		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockTagRepo, mockCCRepo)
 
-		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry")).Return(int64(1), nil)
+		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry"), "test-account").Return(nil)
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{
@@ -126,6 +93,7 @@ func TestAddEntry_Execute(t *testing.T) {
 			Currency:    "BRL",
 			Description: "Test income",
 			Date:        date,
+			AccountName: "test-account",
 		})
 
 		assert.NoError(t, err)
@@ -141,8 +109,8 @@ func TestAddEntry_Execute(t *testing.T) {
 		mockCCRepo := new(MockCreditCardsRepository)
 		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockTagRepo, mockCCRepo)
 
-		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry")).Return(int64(1), nil).Once()
-		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry")).Return(int64(2), nil).Once()
+		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry"), "test-account").Return(nil).Once()
+		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry"), "test-account").Return(nil).Once()
 
 		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
 		result, err := uc.Execute(AddEntryInput{
@@ -152,6 +120,7 @@ func TestAddEntry_Execute(t *testing.T) {
 			Description: "Test installments",
 			Date:        date,
 			Times:       2,
+			AccountName: "test-account",
 		})
 
 		assert.NoError(t, err)
@@ -175,6 +144,7 @@ func TestAddEntry_Execute(t *testing.T) {
 			Currency:    "BRL",
 			Description: "Test invalid",
 			Date:        date,
+			AccountName: "test-account",
 		})
 
 		assert.Error(t, err)

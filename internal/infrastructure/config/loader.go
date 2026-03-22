@@ -12,15 +12,12 @@ import (
 )
 
 const (
-	DriverSQLite = "sqlite"
-	DriverYAML   = "yaml"
+	DriverYAML = "yaml"
 )
 
 type Config struct {
-	DatabasesPath   string `koanf:"databases.path"`
 	DefaultCurrency string `koanf:"default.currency"`
 	Locale          string `koanf:"locale"`
-	StorageDriver   string `koanf:"storage.driver"`
 	DataPath        string `koanf:"data.path"`
 }
 
@@ -50,10 +47,8 @@ func (l *Loader) Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		DatabasesPath:   k.String("databases.path"),
 		DefaultCurrency: k.String("default.currency"),
 		Locale:          k.String("locale"),
-		StorageDriver:   k.String("storage.driver"),
 		DataPath:        k.String("data.path"),
 	}
 
@@ -73,9 +68,6 @@ func (l *Loader) applyDefaults(homeDir string, cfg *Config) *Config {
 	if cfg.Locale == "" {
 		cfg.Locale = "pt-BR"
 	}
-	if cfg.StorageDriver == "" {
-		cfg.StorageDriver = DriverSQLite
-	}
 	if cfg.DataPath == "" {
 		cfg.DataPath = filepath.Join(homeDir, ".myfin", "data")
 	}
@@ -88,9 +80,6 @@ func (l *Loader) Save(cfg *Config) error {
 	}
 
 	content := "# myfin configuration\n"
-	if cfg.StorageDriver != "" {
-		content += fmt.Sprintf("storage.driver: %s\n", cfg.StorageDriver)
-	}
 	if cfg.DataPath != "" {
 		content += fmt.Sprintf("data.path: %s\n", cfg.DataPath)
 	}
@@ -99,9 +88,6 @@ func (l *Loader) Save(cfg *Config) error {
 	}
 	if cfg.Locale != "" {
 		content += fmt.Sprintf("locale: %s\n", cfg.Locale)
-	}
-	if cfg.DatabasesPath != "" {
-		content += fmt.Sprintf("databases.path: %s\n", cfg.DatabasesPath)
 	}
 
 	if err := os.WriteFile(l.path, []byte(content), 0644); err != nil {

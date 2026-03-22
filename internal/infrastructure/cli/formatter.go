@@ -25,7 +25,7 @@ func NewFormatter(locale *i18n.Locale) *Formatter {
 }
 
 func (f *Formatter) FormatAccount(acc *entity.Account) string {
-	return fmt.Sprintf("Account created: %s (ID: %d)", acc.Name, acc.ID)
+	return fmt.Sprintf("Account created: %s", acc.Name)
 }
 
 func (f *Formatter) FormatCategory(cat *entity.Category) string {
@@ -33,19 +33,19 @@ func (f *Formatter) FormatCategory(cat *entity.Category) string {
 	if cat.Emoji != nil {
 		emoji = *cat.Emoji + " "
 	}
-	return fmt.Sprintf("Category created: %s%s (ID: %d, Type: %s)", emoji, cat.Name, cat.ID, cat.Type)
+	return fmt.Sprintf("Category created: %s%s (Alias: %s, Type: %s)", emoji, cat.Name, cat.Alias, cat.Type)
 }
 
 func (f *Formatter) FormatCreditCard(cc *entity.CreditCard) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Credit card created: %s (ID: %d)\n", cc.Name, cc.ID))
+	sb.WriteString(fmt.Sprintf("Credit card created: %s\n", cc.Name))
 	sb.WriteString(fmt.Sprintf("  Closing day: %d, Due day: %d", cc.ClosingDay, cc.DueDay))
 	return sb.String()
 }
 
-func (f *Formatter) FormatEntry(entry *entity.Entry, tags map[int64]*entity.Tag) string {
+func (f *Formatter) FormatEntry(entry *entity.Entry) string {
 	var lines []string
-	lines = append(lines, fmt.Sprintf("Entry created (ID: %d)", entry.ID))
+	lines = append(lines, fmt.Sprintf("Entry created"))
 	lines = append(lines, fmt.Sprintf("  Type: %s, Amount: %s", entry.Type, f.locale.FormatCurrency(entry.Amount, entry.Currency)))
 	lines = append(lines, fmt.Sprintf("  Date: %s", f.locale.FormatDate(entry.RealizationDate)))
 	if entry.PaymentDate != nil {
@@ -54,15 +54,15 @@ func (f *Formatter) FormatEntry(entry *entity.Entry, tags map[int64]*entity.Tag)
 	if entry.Description != "" {
 		lines = append(lines, fmt.Sprintf("  Description: %s", entry.Description))
 	}
-	if len(entry.TagIDs) > 0 {
-		lines = append(lines, fmt.Sprintf("  Tags: %s", f.formatTagNames(entry.TagIDs, tags)))
+	if len(entry.Tags) > 0 {
+		lines = append(lines, fmt.Sprintf("  Tags: %s", strings.Join(entry.Tags, ", ")))
 	}
 	return strings.Join(lines, "\n")
 }
 
-func (f *Formatter) FormatEntryWithCategory(entry *entity.Entry, category *entity.Category, tags map[int64]*entity.Tag) string {
+func (f *Formatter) FormatEntryWithCategory(entry *entity.Entry, category *entity.Category) string {
 	var lines []string
-	lines = append(lines, fmt.Sprintf("Entry created (ID: %d)", entry.ID))
+	lines = append(lines, fmt.Sprintf("Entry created"))
 	lines = append(lines, fmt.Sprintf("  Type: %s, Amount: %s", entry.Type, f.locale.FormatCurrency(entry.Amount, entry.Currency)))
 	lines = append(lines, fmt.Sprintf("  Date: %s", f.locale.FormatDate(entry.RealizationDate)))
 	if entry.PaymentDate != nil {
@@ -78,13 +78,13 @@ func (f *Formatter) FormatEntryWithCategory(entry *entity.Entry, category *entit
 	if entry.Description != "" {
 		lines = append(lines, fmt.Sprintf("  Description: %s", entry.Description))
 	}
-	if len(entry.TagIDs) > 0 {
-		lines = append(lines, fmt.Sprintf("  Tags: %s", f.formatTagNames(entry.TagIDs, tags)))
+	if len(entry.Tags) > 0 {
+		lines = append(lines, fmt.Sprintf("  Tags: %s", strings.Join(entry.Tags, ", ")))
 	}
 	return strings.Join(lines, "\n")
 }
 
-func (f *Formatter) FormatEntryMarkdown(entry *entity.Entry, category *entity.Category, tags map[int64]*entity.Tag) string {
+func (f *Formatter) FormatEntryMarkdown(entry *entity.Entry, category *entity.Category) string {
 	emoji := ""
 	if category != nil && category.Emoji != nil {
 		emoji = *category.Emoji + " "
@@ -102,8 +102,8 @@ func (f *Formatter) FormatEntryMarkdown(entry *entity.Entry, category *entity.Ca
 	}
 
 	tagStr := ""
-	if len(entry.TagIDs) > 0 {
-		tagStr = fmt.Sprintf(" `[%s]`", f.formatTagNames(entry.TagIDs, tags))
+	if len(entry.Tags) > 0 {
+		tagStr = fmt.Sprintf(" `[%s]`", strings.Join(entry.Tags, ", "))
 	}
 
 	catName := ""
@@ -126,12 +126,12 @@ func (f *Formatter) FormatEntryMarkdown(entry *entity.Entry, category *entity.Ca
 		"")
 }
 
-func (f *Formatter) FormatEntryDescription(entry *entity.Entry, totalInstallments int) string {
+func (f *Formatter) FormatEntryDescription(entry *entity.Entry) string {
 	desc := entry.Description
-	if entry.CreditCardID != nil {
+	if entry.CreditCardName != nil {
 		ccPart := "[CC] (" + f.locale.FormatDate(entry.RealizationDate) + ")"
-		if totalInstallments > 1 {
-			ccPart += fmt.Sprintf(" (%d/%d)", entry.Installment, totalInstallments)
+		if entry.InstallmentTotal > 1 {
+			ccPart += fmt.Sprintf(" (%d/%d)", entry.InstallmentNumber, entry.InstallmentTotal)
 		}
 		if desc != "" {
 			ccPart += " - " + desc
@@ -141,173 +141,59 @@ func (f *Formatter) FormatEntryDescription(entry *entity.Entry, totalInstallment
 	return desc
 }
 
-func (f *Formatter) FormatEntriesTable(entries []*entity.Entry, categories map[int64]*entity.Category, accounts map[int64]*entity.Account, tags map[int64]*entity.Tag, totalInstallments map[int64]int, filteredAccountID *int64) string {
+func (f *Formatter) FormatEntriesTable(entries []*entity.Entry, categories map[string]*entity.Category, accounts map[string]*entity.Account, filteredAccount string) string {
 	var sb strings.Builder
 
-	// Group entries by account
-	entriesByAccount := make(map[int64][]*entity.Entry)
 	for _, entry := range entries {
-		entriesByAccount[entry.AccountID] = append(entriesByAccount[entry.AccountID], entry)
-	}
-
-	// Get sorted account names
-	type accountInfo struct {
-		id   int64
-		name string
-	}
-	var accountList []accountInfo
-	for id, acc := range accounts {
-		accountList = append(accountList, accountInfo{id: id, name: acc.Name})
-	}
-	// Sort by name
-	for i := 0; i < len(accountList); i++ {
-		for j := i + 1; j < len(accountList); j++ {
-			if accountList[i].name > accountList[j].name {
-				accountList[i], accountList[j] = accountList[j], accountList[i]
-			}
-		}
-	}
-
-	// If list is empty but we have entries, add them
-	if len(accountList) == 0 && len(entries) > 0 {
-		for accountID := range entriesByAccount {
-			accountList = append(accountList, accountInfo{id: accountID, name: ""})
-		}
-	}
-
-	for i, acc := range accountList {
-		accEntries := entriesByAccount[acc.id]
-		if len(accEntries) == 0 {
-			continue
-		}
-
-		// Show account header only if not filtered
-		if filteredAccountID == nil && acc.name != "" {
-			if i > 0 {
-				sb.WriteString("\n")
-			}
-			sb.WriteString(fmt.Sprintf("=== %s ===\n\n", acc.name))
-		}
-
-		expenses, incomes := f.separateByType(accEntries)
-
-		if len(expenses) > 0 {
-			catWidth := f.calculateCategoryWidth(expenses, categories)
-			sb.WriteString("Expenses:\n")
-			headerFormat := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s\n", -catWidth)
-			sb.WriteString(fmt.Sprintf(headerFormat, "Date", "Category", "Amount", "Description"))
-			separatorLen := 12 + 3 + catWidth + 3 + 12 + 3 + 11
-			sb.WriteString(strings.Repeat("-", separatorLen) + "\n")
-
-			for _, entry := range expenses {
-				sb.WriteString(f.formatEntryTableRow(entry, categories, tags, totalInstallments, catWidth))
-			}
-			if len(incomes) > 0 {
-				sb.WriteString("\n")
+		catName := ""
+		if entry.CategoryAlias != nil {
+			if cat, ok := categories[*entry.CategoryAlias]; ok {
+				catName = f.getCategoryDisplayName(cat)
 			}
 		}
 
-		if len(incomes) > 0 {
-			catWidth := f.calculateCategoryWidth(incomes, categories)
-			sb.WriteString("Incomes:\n")
-			headerFormat := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s\n", -catWidth)
-			sb.WriteString(fmt.Sprintf(headerFormat, "Date", "Category", "Amount", "Description"))
-			separatorLen := 12 + 3 + catWidth + 3 + 12 + 3 + 11
-			sb.WriteString(strings.Repeat("-", separatorLen) + "\n")
+		amountStr := f.locale.FormatCurrency(entry.Amount, entry.Currency)
+		dateStr := f.locale.FormatDate(entry.RealizationDate)
+		desc := f.FormatEntryDescription(entry)
 
-			for _, entry := range incomes {
-				sb.WriteString(f.formatEntryTableRow(entry, categories, tags, nil, catWidth))
-			}
+		tagsStr := ""
+		if len(entry.Tags) > 0 {
+			tagsStr = fmt.Sprintf(" [%s]", strings.Join(entry.Tags, ", "))
 		}
+
+		sb.WriteString(fmt.Sprintf("%s | %s | %s | %s%s\n", dateStr, catName, amountStr, desc, tagsStr))
 	}
 
 	return sb.String()
 }
 
-func (f *Formatter) FormatEntriesMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, accounts map[int64]*entity.Account, tags map[int64]*entity.Tag, totalInstallments map[int64]int, filteredAccountID *int64) string {
+func (f *Formatter) FormatEntriesMarkdown(entries []*entity.Entry, categories map[string]*entity.Category, accounts map[string]*entity.Account, filteredAccount string) string {
 	var sb strings.Builder
 
-	// Group entries by account
-	entriesByAccount := make(map[int64][]*entity.Entry)
 	for _, entry := range entries {
-		entriesByAccount[entry.AccountID] = append(entriesByAccount[entry.AccountID], entry)
-	}
-
-	// Get sorted account names
-	type accountInfo struct {
-		id   int64
-		name string
-	}
-	var accountList []accountInfo
-	for id, acc := range accounts {
-		accountList = append(accountList, accountInfo{id: id, name: acc.Name})
-	}
-	// Sort by name
-	for i := 0; i < len(accountList); i++ {
-		for j := i + 1; j < len(accountList); j++ {
-			if accountList[i].name > accountList[j].name {
-				accountList[i], accountList[j] = accountList[j], accountList[i]
+		catName := ""
+		if entry.CategoryAlias != nil {
+			if cat, ok := categories[*entry.CategoryAlias]; ok {
+				catName = f.getCategoryDisplayName(cat)
 			}
 		}
-	}
 
-	// If list is empty but we have entries, add them
-	if len(accountList) == 0 && len(entries) > 0 {
-		for accountID := range entriesByAccount {
-			accountList = append(accountList, accountInfo{id: accountID, name: ""})
-		}
-	}
+		amountStr := f.locale.FormatCurrency(entry.Amount, entry.Currency)
+		dateStr := f.locale.FormatDate(entry.RealizationDate)
+		desc := f.FormatEntryDescription(entry)
 
-	for i, acc := range accountList {
-		accEntries := entriesByAccount[acc.id]
-		if len(accEntries) == 0 {
-			continue
+		tagsStr := ""
+		if len(entry.Tags) > 0 {
+			tagsStr = fmt.Sprintf(" `[%s]`", strings.Join(entry.Tags, ", "))
 		}
 
-		// Show account header only if not filtered
-		if filteredAccountID == nil && acc.name != "" {
-			if i > 0 {
-				sb.WriteString("\n")
-			}
-			sb.WriteString(fmt.Sprintf("## %s\n\n", acc.name))
-		}
-
-		expenses, incomes := f.separateByType(accEntries)
-
-		if len(expenses) > 0 {
-			if filteredAccountID == nil {
-				sb.WriteString("### Expenses\n\n")
-			} else {
-				sb.WriteString("## Expenses\n\n")
-			}
-			sb.WriteString("| Date | Category | Amount | Description |\n")
-			sb.WriteString("|------|----------|--------|-------------|\n")
-
-			for _, entry := range expenses {
-				sb.WriteString(f.formatEntryMarkdownRow(entry, categories, tags, totalInstallments))
-			}
-			sb.WriteString("\n")
-		}
-
-		if len(incomes) > 0 {
-			if filteredAccountID == nil {
-				sb.WriteString("### Incomes\n\n")
-			} else {
-				sb.WriteString("## Incomes\n\n")
-			}
-			sb.WriteString("| Date | Category | Amount | Description |\n")
-			sb.WriteString("|------|----------|--------|-------------|\n")
-
-			for _, entry := range incomes {
-				sb.WriteString(f.formatEntryMarkdownRow(entry, categories, tags, nil))
-			}
-		}
+		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s%s |\n", dateStr, catName, amountStr, desc, tagsStr))
 	}
 
 	return sb.String()
 }
 
-func (f *Formatter) FormatReportMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, from, to *time.Time) string {
+func (f *Formatter) FormatReportMarkdown(entries []*entity.Entry, categories map[string]*entity.Category, from, to *time.Time) string {
 	var sb strings.Builder
 
 	sb.WriteString("# Financial Report\n\n")
@@ -327,8 +213,11 @@ func (f *Formatter) FormatReportMarkdown(entries []*entity.Entry, categories map
 	sb.WriteString("|------|----------|------|--------|\n")
 
 	for _, entry := range entries {
-		cat := categories[*entry.CategoryID]
-		sb.WriteString(f.FormatEntryMarkdown(entry, cat, tags) + "\n")
+		var cat *entity.Category
+		if entry.CategoryAlias != nil {
+			cat = categories[*entry.CategoryAlias]
+		}
+		sb.WriteString(f.FormatEntryMarkdown(entry, cat) + "\n")
 	}
 
 	sb.WriteString("\n")
@@ -357,11 +246,11 @@ func (f *Formatter) FormatSummary(entries []*entity.Entry) string {
 	return sb.String()
 }
 
-func (f *Formatter) FormatBalancesTable(accounts []*entity.Account, accountBalances map[int64]*AccountBalance, from, to *time.Time) string {
+func (f *Formatter) FormatBalancesTable(accounts []*entity.Account, accountBalances map[string]*AccountBalance, from, to *time.Time) string {
 	var sb strings.Builder
 
 	for _, acc := range accounts {
-		ab := accountBalances[acc.ID]
+		ab := accountBalances[acc.Name]
 		if ab == nil {
 			ab = &AccountBalance{Account: acc}
 		}
@@ -391,13 +280,13 @@ func (f *Formatter) FormatBalancesTable(accounts []*entity.Account, accountBalan
 	return sb.String()
 }
 
-func (f *Formatter) FormatBalancesMarkdown(accounts []*entity.Account, accountBalances map[int64]*AccountBalance, from, to *time.Time) string {
+func (f *Formatter) FormatBalancesMarkdown(accounts []*entity.Account, accountBalances map[string]*AccountBalance, from, to *time.Time) string {
 	var sb strings.Builder
 
 	sb.WriteString("# Balances\n\n")
 
 	for _, acc := range accounts {
-		ab := accountBalances[acc.ID]
+		ab := accountBalances[acc.Name]
 		if ab == nil {
 			ab = &AccountBalance{Account: acc}
 		}
@@ -436,21 +325,6 @@ func (f *Formatter) FormatSuccess(msg string) string {
 	return fmt.Sprintf("Success: %s", msg)
 }
 
-func (f *Formatter) formatTagNames(ids []int64, tags map[int64]*entity.Tag) string {
-	if len(ids) == 0 || tags == nil {
-		return ""
-	}
-	strs := make([]string, 0, len(ids))
-	for _, id := range ids {
-		if tag, ok := tags[id]; ok {
-			strs = append(strs, tag.Name)
-		} else {
-			strs = append(strs, fmt.Sprintf("tag_%d", id))
-		}
-	}
-	return strings.Join(strs, ", ")
-}
-
 func (f *Formatter) getCategoryDisplayName(cat *entity.Category) string {
 	if cat == nil {
 		return ""
@@ -459,103 +333,4 @@ func (f *Formatter) getCategoryDisplayName(cat *entity.Category) string {
 		return *cat.Emoji + " " + cat.Name
 	}
 	return cat.Name
-}
-
-func (f *Formatter) calculateCategoryWidth(entries []*entity.Entry, categories map[int64]*entity.Category) int {
-	minWidth := len("Category")
-	for _, entry := range entries {
-		if entry.CategoryID != nil {
-			if cat, ok := categories[*entry.CategoryID]; ok {
-				displayName := f.getCategoryDisplayName(cat)
-				if len(displayName) > minWidth {
-					minWidth = len(displayName)
-				}
-			}
-		}
-	}
-	return minWidth
-}
-
-func (f *Formatter) separateByType(entries []*entity.Entry) (expenses, incomes []*entity.Entry) {
-	for _, e := range entries {
-		if e.IsExpense() {
-			expenses = append(expenses, e)
-		} else {
-			incomes = append(incomes, e)
-		}
-	}
-	return
-}
-
-func (f *Formatter) formatEntryTableRow(entry *entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int, catWidth int) string {
-	var sb strings.Builder
-
-	dateStr := f.locale.FormatDate(entry.RealizationDate)
-	catName := ""
-	if entry.CategoryID != nil {
-		if cat, ok := categories[*entry.CategoryID]; ok {
-			catName = f.getCategoryDisplayName(cat)
-		}
-	}
-
-	amountStr := f.locale.FormatCurrency(entry.Amount, entry.Currency)
-
-	ti := 0
-	if totalInstallments != nil {
-		if entry.ParentEntryID != nil {
-			ti = totalInstallments[*entry.ParentEntryID]
-		} else {
-			ti = totalInstallments[entry.ID]
-		}
-	}
-
-	desc := f.FormatEntryDescription(entry, ti)
-
-	tagsStr := ""
-	if len(entry.TagIDs) > 0 && tags != nil {
-		tagsStr = f.formatTagNames(entry.TagIDs, tags)
-	}
-
-	formatStr := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s\n", -catWidth)
-	sb.WriteString(fmt.Sprintf(formatStr, dateStr, catName, amountStr, desc))
-	if tagsStr != "" {
-		emptyFormatStr := fmt.Sprintf("%%-12s   %%%ds   %%-12s   Tags: %%s\n", -catWidth)
-		sb.WriteString(fmt.Sprintf(emptyFormatStr, "", "", "", tagsStr))
-	}
-
-	return sb.String()
-}
-
-func (f *Formatter) formatEntryMarkdownRow(entry *entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int) string {
-	dateStr := f.locale.FormatDate(entry.RealizationDate)
-	catName := ""
-	if entry.CategoryID != nil {
-		if cat, ok := categories[*entry.CategoryID]; ok {
-			if cat.Emoji != nil {
-				catName = *cat.Emoji + " " + cat.Name
-			} else {
-				catName = cat.Name
-			}
-		}
-	}
-
-	amountStr := f.locale.FormatCurrency(entry.Amount, entry.Currency)
-
-	ti := 0
-	if totalInstallments != nil {
-		if entry.ParentEntryID != nil {
-			ti = totalInstallments[*entry.ParentEntryID]
-		} else {
-			ti = totalInstallments[entry.ID]
-		}
-	}
-
-	desc := f.FormatEntryDescription(entry, ti)
-
-	tagsStr := ""
-	if len(entry.TagIDs) > 0 && tags != nil {
-		tagsStr = fmt.Sprintf("`[%s]`", f.formatTagNames(entry.TagIDs, tags))
-	}
-
-	return fmt.Sprintf("| %s | %s | %s | %s %s |\n", dateStr, catName, amountStr, desc, tagsStr)
 }

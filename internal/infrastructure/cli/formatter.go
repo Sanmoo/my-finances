@@ -14,10 +14,11 @@ type Formatter struct {
 }
 
 type AccountBalance struct {
-	Account      *entity.Account
-	TotalIncome  float64
-	TotalExpense float64
-	Balance      float64
+	Account            *entity.Account
+	TotalIncome        float64
+	TotalExpense       float64
+	Balance            float64
+	AccumulatedBalance float64
 }
 
 func NewFormatter(locale *i18n.Locale) *Formatter {
@@ -345,17 +346,16 @@ func (f *Formatter) FormatBalancesTable(accounts []*entity.Account, accountBalan
 
 		sb.WriteString(fmt.Sprintf("=== %s ===\n\n", acc.Name))
 
-		if from != nil || to != nil {
-			period := ""
-			if from != nil {
-				period += f.locale.FormatDate(*from)
-			}
-			if from != nil && to != nil {
-				period += " - "
-			}
-			if to != nil {
-				period += f.locale.FormatDate(*to)
-			}
+		period := ""
+		if from != nil && to != nil {
+			period = fmt.Sprintf("from %s to %s", f.locale.FormatDate(*from), f.locale.FormatDate(*to))
+		} else if to != nil {
+			period = fmt.Sprintf("Up to %s", f.locale.FormatDate(*to))
+		} else if from != nil {
+			period = fmt.Sprintf("from %s", f.locale.FormatDate(*from))
+		}
+
+		if period != "" {
 			sb.WriteString(fmt.Sprintf("Period: %s\n\n", period))
 		}
 
@@ -363,6 +363,10 @@ func (f *Formatter) FormatBalancesTable(accounts []*entity.Account, accountBalan
 		sb.WriteString(fmt.Sprintf("  Total Expense: %s\n", f.locale.FormatNumber(ab.TotalExpense)))
 		sb.WriteString("  " + strings.Repeat("-", 30) + "\n")
 		sb.WriteString(fmt.Sprintf("  Balance:       %s\n\n", f.locale.FormatNumber(ab.Balance)))
+
+		if to != nil {
+			sb.WriteString(fmt.Sprintf("Total Balance Up to %s: %s\n\n", f.locale.FormatDate(*to), f.locale.FormatNumber(ab.AccumulatedBalance)))
+		}
 	}
 
 	return sb.String()
@@ -381,17 +385,16 @@ func (f *Formatter) FormatBalancesMarkdown(accounts []*entity.Account, accountBa
 
 		sb.WriteString(fmt.Sprintf("## %s\n\n", acc.Name))
 
-		if from != nil || to != nil {
-			period := ""
-			if from != nil {
-				period += f.locale.FormatDate(*from)
-			}
-			if from != nil && to != nil {
-				period += " - "
-			}
-			if to != nil {
-				period += f.locale.FormatDate(*to)
-			}
+		period := ""
+		if from != nil && to != nil {
+			period = fmt.Sprintf("from %s to %s", f.locale.FormatDate(*from), f.locale.FormatDate(*to))
+		} else if to != nil {
+			period = fmt.Sprintf("Up to %s", f.locale.FormatDate(*to))
+		} else if from != nil {
+			period = fmt.Sprintf("from %s", f.locale.FormatDate(*from))
+		}
+
+		if period != "" {
 			sb.WriteString(fmt.Sprintf("**Period:** %s\n\n", period))
 		}
 
@@ -399,7 +402,12 @@ func (f *Formatter) FormatBalancesMarkdown(accounts []*entity.Account, accountBa
 		sb.WriteString("|---|---:|\n")
 		sb.WriteString(fmt.Sprintf("| Total Income | %s |\n", f.locale.FormatNumber(ab.TotalIncome)))
 		sb.WriteString(fmt.Sprintf("| Total Expense | %s |\n", f.locale.FormatNumber(ab.TotalExpense)))
-		sb.WriteString(fmt.Sprintf("| **Balance** | **%s** |\n\n", f.locale.FormatNumber(ab.Balance)))
+		sb.WriteString(fmt.Sprintf("| **Balance** | **%s** |\n", f.locale.FormatNumber(ab.Balance)))
+
+		if to != nil {
+			sb.WriteString(fmt.Sprintf("| **Total Balance Up to %s** | **%s** |\n", f.locale.FormatDate(*to), f.locale.FormatNumber(ab.AccumulatedBalance)))
+		}
+		sb.WriteString("\n")
 	}
 
 	return sb.String()

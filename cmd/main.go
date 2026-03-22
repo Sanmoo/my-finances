@@ -449,14 +449,20 @@ var reportBalancesCmd = &cobra.Command{
 		accountStr, _ := cmd.Flags().GetString("account")
 		format, _ := cmd.Flags().GetString("format")
 
-		var from, until *time.Time
+		var from *time.Time
 		if fromStr != "" {
 			t := parseDate(fromStr)
 			from = &t
 		}
+
+		// If --until is not specified, use today as the default
+		var until *time.Time
 		if untilStr != "" {
 			t := parseDate(untilStr)
 			until = &t
+		} else {
+			today := time.Now().UTC().Truncate(24 * time.Hour)
+			until = &today
 		}
 
 		entryRepo := factory.NewEntriesRepository()
@@ -485,6 +491,7 @@ var reportBalancesCmd = &cobra.Command{
 		accountBalances := make(map[string]*cli.AccountBalance)
 
 		for _, acc := range accounts {
+			// Get entries within the filtered period (respecting --from and --until)
 			entries, err := entryRepo.GetAll(&port.EntryFilters{
 				FromDate:    from,
 				ToDate:      until,
@@ -504,11 +511,31 @@ var reportBalancesCmd = &cobra.Command{
 				}
 			}
 
+			// Get accumulated entries up to --until (ignoring --from)
+			accumulatedEntries, err := entryRepo.GetAll(&port.EntryFilters{
+				ToDate:      until,
+				AccountName: acc.Name,
+			})
+			if err != nil {
+				printer.PrintError(err.Error())
+				return
+			}
+
+			var accumulatedBalance float64
+			for _, entry := range accumulatedEntries {
+				if entry.IsIncome() {
+					accumulatedBalance += entry.Amount
+				} else {
+					accumulatedBalance -= entry.Amount
+				}
+			}
+
 			accountBalances[acc.Name] = &cli.AccountBalance{
-				Account:      acc,
-				TotalIncome:  totalIncome,
-				TotalExpense: totalExpense,
-				Balance:      totalIncome - totalExpense,
+				Account:            acc,
+				TotalIncome:        totalIncome,
+				TotalExpense:       totalExpense,
+				Balance:            totalIncome - totalExpense,
+				AccumulatedBalance: accumulatedBalance,
 			}
 		}
 

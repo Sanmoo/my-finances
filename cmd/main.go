@@ -545,19 +545,19 @@ func init() {
 	addCreditCardCmd.Flags().Int("closing-day", 0, "closing day (1-31)")
 	addCreditCardCmd.Flags().Int("due-day", 0, "due day (1-31)")
 
-	addExpenseCmd.Flags().String("account", "", "account name (required)")
-	addExpenseCmd.Flags().String("tags", "", "tag names (comma-separated)")
-	addExpenseCmd.Flags().String("date", "", "date (DD-MM-YY)")
-	addExpenseCmd.Flags().String("category", "", "category alias")
-	addExpenseCmd.Flags().String("description", "", "description")
-	addExpenseCmd.Flags().String("credit-card", "", "credit card name")
-	addExpenseCmd.Flags().Int("times", 0, "number of installments")
+	addExpenseCmd.Flags().StringP("account", "a", "", "account name (required)")
+	addExpenseCmd.Flags().StringP("tags", "t", "", "tag names (comma-separated)")
+	addExpenseCmd.Flags().StringP("date", "d", "", "date (flexible: DD, MM-DD, YY-MM-DD, YYYY-MM-DD)")
+	addExpenseCmd.Flags().StringP("category", "c", "", "category alias")
+	addExpenseCmd.Flags().StringP("description", "D", "", "description")
+	addExpenseCmd.Flags().StringP("credit-card", "C", "", "credit card name")
+	addExpenseCmd.Flags().IntP("times", "n", 0, "number of installments")
 
-	addIncomeCmd.Flags().String("account", "", "account name (required)")
-	addIncomeCmd.Flags().String("tags", "", "tag names (comma-separated)")
-	addIncomeCmd.Flags().String("date", "", "date (DD-MM-YY)")
-	addIncomeCmd.Flags().String("category", "", "category alias")
-	addIncomeCmd.Flags().String("description", "", "description")
+	addIncomeCmd.Flags().StringP("account", "a", "", "account name (required)")
+	addIncomeCmd.Flags().StringP("tags", "t", "", "tag names (comma-separated)")
+	addIncomeCmd.Flags().StringP("date", "d", "", "date (flexible: DD, MM-DD, YY-MM-DD, YYYY-MM-DD)")
+	addIncomeCmd.Flags().StringP("category", "c", "", "category alias")
+	addIncomeCmd.Flags().StringP("description", "D", "", "description")
 
 	reportEntriesCmd.Flags().String("from", "", "start date (DD-MM-YY)")
 	reportEntriesCmd.Flags().String("until", "", "end date (DD-MM-YY)")
@@ -603,15 +603,29 @@ func parseDate(dateStr string) time.Time {
 	}
 
 	dateStr = strings.TrimSpace(dateStr)
+	now := time.Now()
 
-	formats := []string{"2006-01-02", "06-01-02"}
-	for _, format := range formats {
-		if t, err := time.Parse(format, dateStr); err == nil {
-			if t.Year() < 100 {
-				t = t.AddDate(2000, 0, 0)
-			}
-			return t.UTC()
+	// Format: YYYY-MM-DD
+	if t, err := time.Parse("2006-01-02", dateStr); err == nil {
+		return t.UTC()
+	}
+
+	// Format: YY-MM-DD
+	if t, err := time.Parse("06-01-02", dateStr); err == nil {
+		if t.Year() < 100 {
+			t = t.AddDate(2000, 0, 0)
 		}
+		return t.UTC()
+	}
+
+	// Format: MM-DD (use current year)
+	if t, err := time.Parse("01-02", dateStr); err == nil {
+		return time.Date(now.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+	}
+
+	// Format: DD (use current month and year)
+	if t, err := time.Parse("2", dateStr); err == nil {
+		return time.Date(now.Year(), now.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 	}
 
 	return time.Time{}

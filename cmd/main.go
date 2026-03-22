@@ -455,14 +455,10 @@ var reportBalancesCmd = &cobra.Command{
 			from = &t
 		}
 
-		// If --until is not specified, use today as the default
 		var until *time.Time
 		if untilStr != "" {
 			t := parseDate(untilStr)
 			until = &t
-		} else {
-			today := time.Now().UTC().Truncate(24 * time.Hour)
-			until = &today
 		}
 
 		entryRepo := factory.NewEntriesRepository()

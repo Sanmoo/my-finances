@@ -147,23 +147,29 @@ func (f *Formatter) FormatEntriesTable(entries []*entity.Entry, categories map[i
 	expenses, incomes := f.separateByType(entries)
 
 	if len(expenses) > 0 {
+		catWidth := f.calculateCategoryWidth(expenses, categories)
 		sb.WriteString("=== Expenses ===\n")
-		sb.WriteString(fmt.Sprintf("%-12s | %-15s | %-12s | %s\n", "Date", "Category", "Amount", "Description"))
-		sb.WriteString(strings.Repeat("-", 80) + "\n")
+		headerFormat := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s\n", -catWidth)
+		sb.WriteString(fmt.Sprintf(headerFormat, "Date", "Category", "Amount", "Description"))
+		separatorLen := 12 + 3 + catWidth + 3 + 12 + 3 + 11
+		sb.WriteString(strings.Repeat("-", separatorLen) + "\n")
 
 		for _, entry := range expenses {
-			sb.WriteString(f.formatEntryTableRow(entry, categories, tags, totalInstallments))
+			sb.WriteString(f.formatEntryTableRow(entry, categories, tags, totalInstallments, catWidth))
 		}
 		sb.WriteString("\n")
 	}
 
 	if len(incomes) > 0 {
+		catWidth := f.calculateCategoryWidth(incomes, categories)
 		sb.WriteString("=== Incomes ===\n")
-		sb.WriteString(fmt.Sprintf("%-12s | %-15s | %-12s | %s\n", "Date", "Category", "Amount", "Description"))
-		sb.WriteString(strings.Repeat("-", 80) + "\n")
+		headerFormat := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s\n", -catWidth)
+		sb.WriteString(fmt.Sprintf(headerFormat, "Date", "Category", "Amount", "Description"))
+		separatorLen := 12 + 3 + catWidth + 3 + 12 + 3 + 11
+		sb.WriteString(strings.Repeat("-", separatorLen) + "\n")
 
 		for _, entry := range incomes {
-			sb.WriteString(f.formatEntryTableRow(entry, categories, tags, nil))
+			sb.WriteString(f.formatEntryTableRow(entry, categories, tags, nil, catWidth))
 		}
 	}
 
@@ -343,6 +349,31 @@ func (f *Formatter) formatTagNames(ids []int64, tags map[int64]*entity.Tag) stri
 	return strings.Join(strs, ", ")
 }
 
+func (f *Formatter) getCategoryDisplayName(cat *entity.Category) string {
+	if cat == nil {
+		return ""
+	}
+	if cat.Emoji != nil && *cat.Emoji != "" {
+		return *cat.Emoji + " " + cat.Name
+	}
+	return cat.Name
+}
+
+func (f *Formatter) calculateCategoryWidth(entries []*entity.Entry, categories map[int64]*entity.Category) int {
+	minWidth := len("Category")
+	for _, entry := range entries {
+		if entry.CategoryID != nil {
+			if cat, ok := categories[*entry.CategoryID]; ok {
+				displayName := f.getCategoryDisplayName(cat)
+				if len(displayName) > minWidth {
+					minWidth = len(displayName)
+				}
+			}
+		}
+	}
+	return minWidth
+}
+
 func (f *Formatter) separateByType(entries []*entity.Entry) (expenses, incomes []*entity.Entry) {
 	for _, e := range entries {
 		if e.IsExpense() {
@@ -354,14 +385,14 @@ func (f *Formatter) separateByType(entries []*entity.Entry) (expenses, incomes [
 	return
 }
 
-func (f *Formatter) formatEntryTableRow(entry *entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int) string {
+func (f *Formatter) formatEntryTableRow(entry *entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int, catWidth int) string {
 	var sb strings.Builder
 
 	dateStr := f.locale.FormatDate(entry.RealizationDate)
 	catName := ""
 	if entry.CategoryID != nil {
 		if cat, ok := categories[*entry.CategoryID]; ok {
-			catName = cat.Name
+			catName = f.getCategoryDisplayName(cat)
 		}
 	}
 
@@ -383,9 +414,11 @@ func (f *Formatter) formatEntryTableRow(entry *entity.Entry, categories map[int6
 		tagsStr = f.formatTagNames(entry.TagIDs, tags)
 	}
 
-	sb.WriteString(fmt.Sprintf("%-12s | %-15s | %-12s | %s\n", dateStr, catName, amountStr, desc))
+	formatStr := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s\n", -catWidth)
+	sb.WriteString(fmt.Sprintf(formatStr, dateStr, catName, amountStr, desc))
 	if tagsStr != "" {
-		sb.WriteString(fmt.Sprintf("%-12s   %-15s   %-12s   Tags: %s\n", "", "", "", tagsStr))
+		emptyFormatStr := fmt.Sprintf("%%-12s   %%%ds   %%-12s   Tags: %%s\n", -catWidth)
+		sb.WriteString(fmt.Sprintf(emptyFormatStr, "", "", "", tagsStr))
 	}
 
 	return sb.String()

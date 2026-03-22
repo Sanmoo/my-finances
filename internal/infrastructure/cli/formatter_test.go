@@ -102,6 +102,160 @@ func TestFormatEntriesTable_CategoryWidth(t *testing.T) {
 		assert.Contains(t, output, "15/03/2024")
 		assert.Contains(t, output, "R$ 100,00")
 	})
+
+	t.Run("prints headers for expenses", func(t *testing.T) {
+		entryDate := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
+
+		entries := []*entity.Entry{
+			{
+				Type:            entity.EntryTypeExpense,
+				Amount:          100.00,
+				Currency:        "BRL",
+				RealizationDate: entryDate,
+			},
+		}
+		categories := map[string]*entity.Category{}
+		accounts := map[string]*entity.Account{}
+
+		output := f.FormatEntriesTable(entries, categories, accounts, "")
+
+		assert.Contains(t, output, "=== Expenses ===")
+		assert.Contains(t, output, "Date")
+		assert.Contains(t, output, "Category")
+		assert.Contains(t, output, "Amount")
+		assert.Contains(t, output, "Description")
+	})
+
+	t.Run("prints headers for incomes", func(t *testing.T) {
+		entryDate := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
+
+		entries := []*entity.Entry{
+			{
+				Type:            entity.EntryTypeIncome,
+				Amount:          1000.00,
+				Currency:        "BRL",
+				RealizationDate: entryDate,
+			},
+		}
+		categories := map[string]*entity.Category{}
+		accounts := map[string]*entity.Account{}
+
+		output := f.FormatEntriesTable(entries, categories, accounts, "")
+
+		assert.Contains(t, output, "=== Incomes ===")
+		assert.Contains(t, output, "Date")
+		assert.Contains(t, output, "Category")
+		assert.Contains(t, output, "Amount")
+		assert.Contains(t, output, "Description")
+	})
+
+	t.Run("separates expenses and incomes", func(t *testing.T) {
+		entryDate := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
+
+		entries := []*entity.Entry{
+			{
+				Type:            entity.EntryTypeExpense,
+				Amount:          100.00,
+				Currency:        "BRL",
+				RealizationDate: entryDate,
+				Description:     "Test expense",
+			},
+			{
+				Type:            entity.EntryTypeIncome,
+				Amount:          1000.00,
+				Currency:        "BRL",
+				RealizationDate: entryDate,
+				Description:     "Test income",
+			},
+		}
+		categories := map[string]*entity.Category{}
+		accounts := map[string]*entity.Account{}
+
+		output := f.FormatEntriesTable(entries, categories, accounts, "")
+
+		expensesIdx := strings.Index(output, "=== Expenses ===")
+		incomesIdx := strings.Index(output, "=== Incomes ===")
+
+		assert.True(t, expensesIdx < incomesIdx, "Expenses should come before Incomes")
+		assert.Contains(t, output, "Test expense")
+		assert.Contains(t, output, "Test income")
+	})
+}
+
+func TestFormatEntriesMarkdown_HeadersAndSeparation(t *testing.T) {
+	f := newTestFormatter()
+
+	t.Run("prints markdown headers for expenses", func(t *testing.T) {
+		entryDate := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
+
+		entries := []*entity.Entry{
+			{
+				Type:            entity.EntryTypeExpense,
+				Amount:          100.00,
+				Currency:        "BRL",
+				RealizationDate: entryDate,
+			},
+		}
+		categories := map[string]*entity.Category{}
+		accounts := map[string]*entity.Account{}
+
+		output := f.FormatEntriesMarkdown(entries, categories, accounts, "")
+
+		assert.Contains(t, output, "## Expenses")
+		assert.Contains(t, output, "| Date | Category | Amount | Description |")
+	})
+
+	t.Run("prints markdown headers for incomes", func(t *testing.T) {
+		entryDate := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
+
+		entries := []*entity.Entry{
+			{
+				Type:            entity.EntryTypeIncome,
+				Amount:          1000.00,
+				Currency:        "BRL",
+				RealizationDate: entryDate,
+			},
+		}
+		categories := map[string]*entity.Category{}
+		accounts := map[string]*entity.Account{}
+
+		output := f.FormatEntriesMarkdown(entries, categories, accounts, "")
+
+		assert.Contains(t, output, "## Incomes")
+		assert.Contains(t, output, "| Date | Category | Amount | Description |")
+	})
+
+	t.Run("separates expenses and incomes in markdown", func(t *testing.T) {
+		entryDate := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
+
+		entries := []*entity.Entry{
+			{
+				Type:            entity.EntryTypeExpense,
+				Amount:          100.00,
+				Currency:        "BRL",
+				RealizationDate: entryDate,
+				Description:     "Test expense",
+			},
+			{
+				Type:            entity.EntryTypeIncome,
+				Amount:          1000.00,
+				Currency:        "BRL",
+				RealizationDate: entryDate,
+				Description:     "Test income",
+			},
+		}
+		categories := map[string]*entity.Category{}
+		accounts := map[string]*entity.Account{}
+
+		output := f.FormatEntriesMarkdown(entries, categories, accounts, "")
+
+		expensesIdx := strings.Index(output, "## Expenses")
+		incomesIdx := strings.Index(output, "## Incomes")
+
+		assert.True(t, expensesIdx < incomesIdx, "Expenses should come before Incomes")
+		assert.Contains(t, output, "Test expense")
+		assert.Contains(t, output, "Test income")
+	})
 }
 
 func TestGetCategoryDisplayName(t *testing.T) {

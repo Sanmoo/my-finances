@@ -72,6 +72,21 @@ func (r *CreditCardsRepository) GetByID(id int64) (*entity.CreditCard, error) {
 	return nil, nil
 }
 
+func (r *CreditCardsRepository) GetByName(name string) (*entity.CreditCard, error) {
+	data, err := Read[CreditCardsData](r.filePath())
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range data.CreditCards {
+		if data.CreditCards[i].Name == name {
+			return data.CreditCards[i].ToEntity(), nil
+		}
+	}
+
+	return nil, nil
+}
+
 func (r *CreditCardsRepository) GetAll() ([]*entity.CreditCard, error) {
 	data, err := Read[CreditCardsData](r.filePath())
 	if err != nil {

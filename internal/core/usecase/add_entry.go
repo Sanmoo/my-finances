@@ -16,7 +16,7 @@ type AddEntryInput struct {
 	Currency            string
 	Description         string
 	CategoryNameOrAlias string
-	CreditCard          *entity.CreditCard
+	CreditCardName      string
 	TagIDs              []int64
 	Times               int
 	Date                time.Time
@@ -55,8 +55,23 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 		return nil, fmt.Errorf("invalid amount expression: %w", err)
 	}
 
-	if input.Times <= 0 {
-		input.Times = 1
+	var creditCard *entity.CreditCard
+	if input.CreditCardName != "" {
+		if input.Times <= 0 {
+			return nil, fmt.Errorf("--times is required when using --credit-card")
+		}
+		cc, err := uc.ccRepo.GetByName(input.CreditCardName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find credit card: %w", err)
+		}
+		if cc == nil {
+			return nil, fmt.Errorf("credit card not found: %s", input.CreditCardName)
+		}
+		creditCard = cc
+	} else {
+		if input.Times <= 0 {
+			input.Times = 1
+		}
 	}
 
 	var categoryID *int64
@@ -73,7 +88,6 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 		category = cat
 	}
 
-	// Validate all tag IDs exist
 	for _, tagID := range input.TagIDs {
 		tag, err := uc.tagRepo.GetByID(tagID)
 		if err != nil {
@@ -93,7 +107,7 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 			date = date.AddDate(0, 1, 0)
 		}
 
-		entry, err := uc.createEntry(input, amount, date, i+1, parentID, categoryID)
+		entry, err := uc.createEntry(input, amount, date, i+1, parentID, categoryID, creditCard)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +128,7 @@ func (uc *AddEntry) Execute(input AddEntryInput) (*AddEntryOutput, error) {
 	return &AddEntryOutput{Entries: entries, Category: category}, nil
 }
 
-func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.Time, installment int, parentID *int64, categoryID *int64) (*entity.Entry, error) {
+func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.Time, installment int, parentID *int64, categoryID *int64, creditCard *entity.CreditCard) (*entity.Entry, error) {
 	var opts []entity.EntryOption
 
 	description := strings.TrimSpace(input.Description)
@@ -127,8 +141,8 @@ func (uc *AddEntry) createEntry(input AddEntryInput, amount float64, date time.T
 		opts = append(opts, entity.WithCategoryID(*categoryID))
 	}
 
-	if input.CreditCard != nil {
-		opts = append(opts, entity.WithCreditCard(input.CreditCard))
+	if creditCard != nil {
+		opts = append(opts, entity.WithCreditCard(creditCard))
 	}
 
 	if len(input.TagIDs) > 0 {

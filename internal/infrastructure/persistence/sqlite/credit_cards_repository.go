@@ -47,6 +47,22 @@ func (r *CreditCardsRepository) GetByID(id int64) (*entity.CreditCard, error) {
 	return &cc, nil
 }
 
+func (r *CreditCardsRepository) GetByName(name string) (*entity.CreditCard, error) {
+	query := `SELECT id, name, closing_day, due_day FROM credit_cards WHERE name = ?`
+
+	var cc entity.CreditCard
+
+	err := r.db.QueryRow(query, name).Scan(&cc.ID, &cc.Name, &cc.ClosingDay, &cc.DueDay)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get credit card: %w", err)
+	}
+
+	return &cc, nil
+}
+
 func (r *CreditCardsRepository) GetAll() ([]*entity.CreditCard, error) {
 	query := `SELECT id, name, closing_day, due_day FROM credit_cards ORDER BY name`
 

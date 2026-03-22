@@ -225,27 +225,7 @@ var addExpenseCmd = &cobra.Command{
 			}
 			tagIDs = append(tagIDs, tag.ID)
 		}
-
 		uc := usecase.NewAddEntry(entryRepo, categoryRepo, tagRepo, ccRepo)
-
-		var cc *entity.CreditCard
-		if creditCardStr != "" {
-			ccs, _ := ccRepo.GetAll()
-			for _, c := range ccs {
-				if c.Name == creditCardStr {
-					cc = c
-					break
-				}
-			}
-			if times <= 0 {
-				printer.PrintError("--times is required when using --credit-card")
-				return
-			}
-		}
-
-		if times <= 0 {
-			times = 1
-		}
 
 		result, err := uc.Execute(usecase.AddEntryInput{
 			Type:                entity.EntryTypeExpense,
@@ -253,7 +233,7 @@ var addExpenseCmd = &cobra.Command{
 			Currency:            currency,
 			Description:         description,
 			CategoryNameOrAlias: categoryStr,
-			CreditCard:          cc,
+			CreditCardName:      creditCardStr,
 			TagIDs:              tagIDs,
 			Times:               times,
 			Date:                date,

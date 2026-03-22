@@ -535,9 +535,9 @@ var reportEntriesCmd = &cobra.Command{
 		}
 
 		if format == "md" {
-			printer.PrintEntriesMarkdown(entries, categoryMap, make(map[int64]*entity.Tag), result.TotalInstallments)
+			printer.PrintEntriesMarkdown(entries, categoryMap, result.Accounts, make(map[int64]*entity.Tag), result.TotalInstallments, accountID)
 		} else {
-			printer.PrintEntriesTable(entries, categoryMap, make(map[int64]*entity.Tag), result.TotalInstallments)
+			printer.PrintEntriesTable(entries, categoryMap, result.Accounts, make(map[int64]*entity.Tag), result.TotalInstallments, accountID)
 		}
 	},
 }

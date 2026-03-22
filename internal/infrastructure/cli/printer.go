@@ -74,12 +74,12 @@ func (p *Printer) PrintEntryWithCategory(entry *entity.Entry, category *entity.C
 	fmt.Fprintln(p.output, p.formatter.FormatEntryWithCategory(entry, category, tags))
 }
 
-func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int) {
-	fmt.Fprint(p.output, p.formatter.FormatEntriesTable(entries, categories, tags, totalInstallments))
+func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[int64]*entity.Category, accounts map[int64]*entity.Account, tags map[int64]*entity.Tag, totalInstallments map[int64]int, filteredAccountID *int64) {
+	fmt.Fprint(p.output, p.formatter.FormatEntriesTable(entries, categories, accounts, tags, totalInstallments, filteredAccountID))
 }
 
-func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int) {
-	fmt.Fprint(p.output, p.formatter.FormatEntriesMarkdown(entries, categories, tags, totalInstallments))
+func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, accounts map[int64]*entity.Account, tags map[int64]*entity.Tag, totalInstallments map[int64]int, filteredAccountID *int64) {
+	fmt.Fprint(p.output, p.formatter.FormatEntriesMarkdown(entries, categories, accounts, tags, totalInstallments, filteredAccountID))
 }
 
 func (p *Printer) PrintReportMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, from, to *time.Time) {

@@ -141,64 +141,166 @@ func (f *Formatter) FormatEntryDescription(entry *entity.Entry, totalInstallment
 	return desc
 }
 
-func (f *Formatter) FormatEntriesTable(entries []*entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int) string {
+func (f *Formatter) FormatEntriesTable(entries []*entity.Entry, categories map[int64]*entity.Category, accounts map[int64]*entity.Account, tags map[int64]*entity.Tag, totalInstallments map[int64]int, filteredAccountID *int64) string {
 	var sb strings.Builder
 
-	expenses, incomes := f.separateByType(entries)
-
-	if len(expenses) > 0 {
-		catWidth := f.calculateCategoryWidth(expenses, categories)
-		sb.WriteString("=== Expenses ===\n")
-		headerFormat := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s\n", -catWidth)
-		sb.WriteString(fmt.Sprintf(headerFormat, "Date", "Category", "Amount", "Description"))
-		separatorLen := 12 + 3 + catWidth + 3 + 12 + 3 + 11
-		sb.WriteString(strings.Repeat("-", separatorLen) + "\n")
-
-		for _, entry := range expenses {
-			sb.WriteString(f.formatEntryTableRow(entry, categories, tags, totalInstallments, catWidth))
-		}
-		sb.WriteString("\n")
+	// Group entries by account
+	entriesByAccount := make(map[int64][]*entity.Entry)
+	for _, entry := range entries {
+		entriesByAccount[entry.AccountID] = append(entriesByAccount[entry.AccountID], entry)
 	}
 
-	if len(incomes) > 0 {
-		catWidth := f.calculateCategoryWidth(incomes, categories)
-		sb.WriteString("=== Incomes ===\n")
-		headerFormat := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s\n", -catWidth)
-		sb.WriteString(fmt.Sprintf(headerFormat, "Date", "Category", "Amount", "Description"))
-		separatorLen := 12 + 3 + catWidth + 3 + 12 + 3 + 11
-		sb.WriteString(strings.Repeat("-", separatorLen) + "\n")
+	// Get sorted account names
+	type accountInfo struct {
+		id   int64
+		name string
+	}
+	var accountList []accountInfo
+	for id, acc := range accounts {
+		accountList = append(accountList, accountInfo{id: id, name: acc.Name})
+	}
+	// Sort by name
+	for i := 0; i < len(accountList); i++ {
+		for j := i + 1; j < len(accountList); j++ {
+			if accountList[i].name > accountList[j].name {
+				accountList[i], accountList[j] = accountList[j], accountList[i]
+			}
+		}
+	}
 
-		for _, entry := range incomes {
-			sb.WriteString(f.formatEntryTableRow(entry, categories, tags, nil, catWidth))
+	// If list is empty but we have entries, add them
+	if len(accountList) == 0 && len(entries) > 0 {
+		for accountID := range entriesByAccount {
+			accountList = append(accountList, accountInfo{id: accountID, name: ""})
+		}
+	}
+
+	for i, acc := range accountList {
+		accEntries := entriesByAccount[acc.id]
+		if len(accEntries) == 0 {
+			continue
+		}
+
+		// Show account header only if not filtered
+		if filteredAccountID == nil && acc.name != "" {
+			if i > 0 {
+				sb.WriteString("\n")
+			}
+			sb.WriteString(fmt.Sprintf("=== %s ===\n\n", acc.name))
+		}
+
+		expenses, incomes := f.separateByType(accEntries)
+
+		if len(expenses) > 0 {
+			catWidth := f.calculateCategoryWidth(expenses, categories)
+			sb.WriteString("Expenses:\n")
+			headerFormat := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s\n", -catWidth)
+			sb.WriteString(fmt.Sprintf(headerFormat, "Date", "Category", "Amount", "Description"))
+			separatorLen := 12 + 3 + catWidth + 3 + 12 + 3 + 11
+			sb.WriteString(strings.Repeat("-", separatorLen) + "\n")
+
+			for _, entry := range expenses {
+				sb.WriteString(f.formatEntryTableRow(entry, categories, tags, totalInstallments, catWidth))
+			}
+			if len(incomes) > 0 {
+				sb.WriteString("\n")
+			}
+		}
+
+		if len(incomes) > 0 {
+			catWidth := f.calculateCategoryWidth(incomes, categories)
+			sb.WriteString("Incomes:\n")
+			headerFormat := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s\n", -catWidth)
+			sb.WriteString(fmt.Sprintf(headerFormat, "Date", "Category", "Amount", "Description"))
+			separatorLen := 12 + 3 + catWidth + 3 + 12 + 3 + 11
+			sb.WriteString(strings.Repeat("-", separatorLen) + "\n")
+
+			for _, entry := range incomes {
+				sb.WriteString(f.formatEntryTableRow(entry, categories, tags, nil, catWidth))
+			}
 		}
 	}
 
 	return sb.String()
 }
 
-func (f *Formatter) FormatEntriesMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, tags map[int64]*entity.Tag, totalInstallments map[int64]int) string {
+func (f *Formatter) FormatEntriesMarkdown(entries []*entity.Entry, categories map[int64]*entity.Category, accounts map[int64]*entity.Account, tags map[int64]*entity.Tag, totalInstallments map[int64]int, filteredAccountID *int64) string {
 	var sb strings.Builder
 
-	expenses, incomes := f.separateByType(entries)
-
-	if len(expenses) > 0 {
-		sb.WriteString("## Expenses\n\n")
-		sb.WriteString("| Date | Category | Amount | Description |\n")
-		sb.WriteString("|------|----------|--------|-------------|\n")
-
-		for _, entry := range expenses {
-			sb.WriteString(f.formatEntryMarkdownRow(entry, categories, tags, totalInstallments))
-		}
-		sb.WriteString("\n")
+	// Group entries by account
+	entriesByAccount := make(map[int64][]*entity.Entry)
+	for _, entry := range entries {
+		entriesByAccount[entry.AccountID] = append(entriesByAccount[entry.AccountID], entry)
 	}
 
-	if len(incomes) > 0 {
-		sb.WriteString("## Incomes\n\n")
-		sb.WriteString("| Date | Category | Amount | Description |\n")
-		sb.WriteString("|------|----------|--------|-------------|\n")
+	// Get sorted account names
+	type accountInfo struct {
+		id   int64
+		name string
+	}
+	var accountList []accountInfo
+	for id, acc := range accounts {
+		accountList = append(accountList, accountInfo{id: id, name: acc.Name})
+	}
+	// Sort by name
+	for i := 0; i < len(accountList); i++ {
+		for j := i + 1; j < len(accountList); j++ {
+			if accountList[i].name > accountList[j].name {
+				accountList[i], accountList[j] = accountList[j], accountList[i]
+			}
+		}
+	}
 
-		for _, entry := range incomes {
-			sb.WriteString(f.formatEntryMarkdownRow(entry, categories, tags, nil))
+	// If list is empty but we have entries, add them
+	if len(accountList) == 0 && len(entries) > 0 {
+		for accountID := range entriesByAccount {
+			accountList = append(accountList, accountInfo{id: accountID, name: ""})
+		}
+	}
+
+	for i, acc := range accountList {
+		accEntries := entriesByAccount[acc.id]
+		if len(accEntries) == 0 {
+			continue
+		}
+
+		// Show account header only if not filtered
+		if filteredAccountID == nil && acc.name != "" {
+			if i > 0 {
+				sb.WriteString("\n")
+			}
+			sb.WriteString(fmt.Sprintf("## %s\n\n", acc.name))
+		}
+
+		expenses, incomes := f.separateByType(accEntries)
+
+		if len(expenses) > 0 {
+			if filteredAccountID == nil {
+				sb.WriteString("### Expenses\n\n")
+			} else {
+				sb.WriteString("## Expenses\n\n")
+			}
+			sb.WriteString("| Date | Category | Amount | Description |\n")
+			sb.WriteString("|------|----------|--------|-------------|\n")
+
+			for _, entry := range expenses {
+				sb.WriteString(f.formatEntryMarkdownRow(entry, categories, tags, totalInstallments))
+			}
+			sb.WriteString("\n")
+		}
+
+		if len(incomes) > 0 {
+			if filteredAccountID == nil {
+				sb.WriteString("### Incomes\n\n")
+			} else {
+				sb.WriteString("## Incomes\n\n")
+			}
+			sb.WriteString("| Date | Category | Amount | Description |\n")
+			sb.WriteString("|------|----------|--------|-------------|\n")
+
+			for _, entry := range incomes {
+				sb.WriteString(f.formatEntryMarkdownRow(entry, categories, tags, nil))
+			}
 		}
 	}
 

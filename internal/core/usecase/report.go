@@ -19,6 +19,7 @@ type ReportInput struct {
 
 type ReportOutput struct {
 	Entries           []*EntryWithCategory
+	Accounts          map[int64]*entity.Account
 	TotalIncome       float64
 	TotalExpense      float64
 	TotalInstallments map[int64]int
@@ -34,6 +35,7 @@ type EntryWithCategory struct {
 	CategoryName    string
 	CreditCardID    *int64
 	AccountID       int64
+	AccountName     string
 	Installment     int
 	ParentEntryID   *int64
 	RealizationDate time.Time
@@ -72,6 +74,15 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 	}
 
 	categoryMap := make(map[int64]*entity.Category)
+	accountMap := make(map[int64]*entity.Account)
+
+	allAccounts, err := uc.accountRepo.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get accounts: %w", err)
+	}
+	for _, acc := range allAccounts {
+		accountMap[acc.ID] = acc
+	}
 
 	if input.AccountID != nil {
 		categories, err := uc.categoryRepo.GetAll(*input.AccountID)
@@ -82,11 +93,7 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 			categoryMap[cat.ID] = cat
 		}
 	} else {
-		accounts, err := uc.accountRepo.GetAll()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get accounts: %w", err)
-		}
-		for _, acc := range accounts {
+		for _, acc := range allAccounts {
 			categories, err := uc.categoryRepo.GetAll(acc.ID)
 			if err != nil {
 				continue
@@ -101,6 +108,7 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 
 	output := &ReportOutput{
 		Entries:           make([]*EntryWithCategory, 0),
+		Accounts:          accountMap,
 		TotalInstallments: totalInstallments,
 	}
 
@@ -138,6 +146,10 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 			if cat, ok := categoryMap[*entry.CategoryID]; ok {
 				entryWithCat.CategoryName = cat.Name
 			}
+		}
+
+		if acc, ok := accountMap[entry.AccountID]; ok {
+			entryWithCat.AccountName = acc.Name
 		}
 
 		if entry.IsIncome() {

@@ -40,6 +40,14 @@ func (m *MockCreditCardsRepository) Delete(id int64) error {
 	return args.Error(0)
 }
 
+func (m *MockCreditCardsRepository) GetByName(name string) (*entity.CreditCard, error) {
+	args := m.Called(name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.CreditCard), args.Error(1)
+}
+
 func TestAddCreditCard_Execute(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockRepo := new(MockCreditCardsRepository)

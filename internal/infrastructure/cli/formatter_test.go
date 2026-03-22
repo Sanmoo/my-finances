@@ -43,7 +43,7 @@ func TestFormatEntriesTable_CategoryWidth(t *testing.T) {
 			1: {ID: 1, Name: longName, Type: entity.CategoryTypeExpense},
 		}
 
-		output := f.FormatEntriesTable(entries, categories, nil, nil)
+		output := f.FormatEntriesTable(entries, categories, nil, nil, nil, nil)
 
 		assert.Contains(t, output, longName)
 		lines := strings.Split(output, "\n")
@@ -75,7 +75,7 @@ func TestFormatEntriesTable_CategoryWidth(t *testing.T) {
 			1: {ID: 1, Name: "food", Emoji: &emoji, Type: entity.CategoryTypeExpense},
 		}
 
-		output := f.FormatEntriesTable(entries, categories, nil, nil)
+		output := f.FormatEntriesTable(entries, categories, nil, nil, nil, nil)
 
 		assert.Contains(t, output, emoji)
 		assert.Contains(t, output, "food")
@@ -95,7 +95,7 @@ func TestFormatEntriesTable_CategoryWidth(t *testing.T) {
 		}
 		categories := map[int64]*entity.Category{}
 
-		output := f.FormatEntriesTable(entries, categories, nil, nil)
+		output := f.FormatEntriesTable(entries, categories, nil, nil, nil, nil)
 
 		assert.Contains(t, output, "Category")
 	})
@@ -118,7 +118,7 @@ func TestFormatEntriesTable_CategoryWidth(t *testing.T) {
 			1: {ID: 1, Name: veryLongName, Type: entity.CategoryTypeExpense},
 		}
 
-		output := f.FormatEntriesTable(entries, categories, nil, nil)
+		output := f.FormatEntriesTable(entries, categories, nil, nil, nil, nil)
 
 		assert.Contains(t, output, veryLongName)
 	})
@@ -151,7 +151,7 @@ func TestFormatEntriesTable_CategoryWidth(t *testing.T) {
 			2: {ID: 2, Name: longName, Type: entity.CategoryTypeExpense},
 		}
 
-		output := f.FormatEntriesTable(entries, categories, nil, nil)
+		output := f.FormatEntriesTable(entries, categories, nil, nil, nil, nil)
 
 		assert.Contains(t, output, shortName)
 		assert.Contains(t, output, longName)
@@ -179,7 +179,7 @@ func TestFormatEntriesTable_SeparatorLength(t *testing.T) {
 			1: {ID: 1, Name: longName, Type: entity.CategoryTypeExpense},
 		}
 
-		output := f.FormatEntriesTable(entries, categories, nil, nil)
+		output := f.FormatEntriesTable(entries, categories, nil, nil, nil, nil)
 		lines := strings.Split(output, "\n")
 
 		var headerLine, separatorLine string

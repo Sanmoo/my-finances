@@ -344,7 +344,7 @@ var reportCmd = &cobra.Command{
 }
 
 var reportEntriesCmd = &cobra.Command{
-	Use:   "entries [--from DD-MM-YY] [--until DD-MM-YY] [--filter-tags x,y] [--filter-categories x,y] [--account name] [--format table|md]",
+	Use:   "entries [--from DD-MM-YY] [--until DD-MM-YY] [--filter-tags x,y] [--filter-categories x,y] [--account name] [--format table|md] [--by-realization]",
 	Short: "List entries",
 	Run: func(cmd *cobra.Command, args []string) {
 		factory, err := getFactory()
@@ -359,6 +359,7 @@ var reportEntriesCmd = &cobra.Command{
 		filterCategoriesStr, _ := cmd.Flags().GetString("filter-categories")
 		accountStr, _ := cmd.Flags().GetString("account")
 		format, _ := cmd.Flags().GetString("format")
+		byRealization, _ := cmd.Flags().GetBool("by-realization")
 
 		var from, until *time.Time
 		if fromStr != "" {
@@ -380,12 +381,13 @@ var reportEntriesCmd = &cobra.Command{
 		report := usecase.NewReport(entryRepo, categoryRepo, accountRepo)
 
 		result, err := report.Execute(usecase.ReportInput{
-			Format:           format,
-			From:             from,
-			To:               until,
-			FilterTags:       filterTags,
-			FilterCategories: filterCategories,
-			AccountName:      accountStr,
+			Format:                  format,
+			From:                    from,
+			To:                      until,
+			FilterTags:              filterTags,
+			FilterCategories:        filterCategories,
+			AccountName:             accountStr,
+			FilterByRealizationDate: byRealization,
 		})
 		if err != nil {
 			printer.PrintError(err.Error())
@@ -588,6 +590,7 @@ func init() {
 	reportEntriesCmd.Flags().String("filter-categories", "", "filter by categories (comma-separated)")
 	reportEntriesCmd.Flags().String("account", "", "account name")
 	reportEntriesCmd.Flags().String("format", "table", "output format (table or md)")
+	reportEntriesCmd.Flags().Bool("by-realization", false, "filter by realization date instead of payment date")
 
 	reportBalancesCmd.Flags().String("from", "", "start date (DD-MM-YY)")
 	reportBalancesCmd.Flags().String("until", "", "end date (DD-MM-YY)")

@@ -9,12 +9,13 @@ import (
 )
 
 type ReportInput struct {
-	Format           string
-	From             *time.Time
-	To               *time.Time
-	FilterTags       []string
-	FilterCategories []string
-	AccountName      string
+	Format                  string
+	From                    *time.Time
+	To                      *time.Time
+	FilterTags              []string
+	FilterCategories        []string
+	AccountName             string
+	FilterByRealizationDate bool
 }
 
 type ReportOutput struct {
@@ -56,9 +57,10 @@ func NewReport(entryRepo port.EntriesRepository, categoryRepo port.CategoriesRep
 
 func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 	filters := &port.EntryFilters{
-		FromDate:    input.From,
-		ToDate:      input.To,
-		AccountName: input.AccountName,
+		FromDate:                input.From,
+		ToDate:                  input.To,
+		AccountName:             input.AccountName,
+		FilterByRealizationDate: input.FilterByRealizationDate,
 	}
 
 	if len(input.FilterTags) > 0 {

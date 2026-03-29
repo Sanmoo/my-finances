@@ -12,11 +12,12 @@ type EntriesRepository interface {
 }
 
 type EntryFilters struct {
-	FromDate      *time.Time
-	ToDate        *time.Time
-	Type          *entity.EntryType
-	CategoryAlias string
-	Tags          []string
-	CreditCard    string
-	AccountName   string
+	FromDate                *time.Time
+	ToDate                  *time.Time
+	Type                    *entity.EntryType
+	CategoryAlias           string
+	Tags                    []string
+	CreditCard              string
+	AccountName             string
+	FilterByRealizationDate bool
 }

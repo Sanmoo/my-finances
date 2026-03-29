@@ -82,6 +82,14 @@ func (p *Printer) PrintEntriesMarkdown(entries []*entity.Entry, categories map[s
 	fmt.Fprint(p.output, p.formatter.FormatEntriesMarkdown(entries, categories, accounts, filteredAccount))
 }
 
+func (p *Printer) PrintEntriesByCategoryTable(entries []*entity.Entry, categories map[string]*entity.Category, accounts map[string]*entity.Account, filteredAccount string) {
+	fmt.Fprint(p.output, p.formatter.FormatEntriesByCategoryTable(entries, categories, accounts, filteredAccount))
+}
+
+func (p *Printer) PrintEntriesByCategoryMarkdown(entries []*entity.Entry, categories map[string]*entity.Category, accounts map[string]*entity.Account, filteredAccount string) {
+	fmt.Fprint(p.output, p.formatter.FormatEntriesByCategoryMarkdown(entries, categories, accounts, filteredAccount))
+}
+
 func (p *Printer) PrintReportMarkdown(entries []*entity.Entry, categories map[string]*entity.Category, from, to *time.Time) {
 	fmt.Fprint(p.output, p.formatter.FormatReportMarkdown(entries, categories, from, to))
 }

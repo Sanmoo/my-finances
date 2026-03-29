@@ -545,6 +545,92 @@ var reportBalancesCmd = &cobra.Command{
 	},
 }
 
+var reportByCategoryCmd = &cobra.Command{
+	Use:   "by-category [--from DD-MM-YY] [--until DD-MM-YY] [--account name] [--format table|md] [--by-realization]",
+	Short: "List entries grouped by category",
+	Run: func(cmd *cobra.Command, args []string) {
+		factory, err := getFactory()
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+
+		fromStr, _ := cmd.Flags().GetString("from")
+		untilStr, _ := cmd.Flags().GetString("until")
+		accountStr, _ := cmd.Flags().GetString("account")
+		format, _ := cmd.Flags().GetString("format")
+		byRealization, _ := cmd.Flags().GetBool("by-realization")
+
+		var from, until *time.Time
+		if fromStr != "" {
+			t := parseDate(fromStr)
+			from = &t
+		}
+		if untilStr != "" {
+			t := parseDate(untilStr)
+			until = &t
+		}
+
+		entryRepo := factory.NewEntriesRepository()
+		categoryRepo := factory.NewCategoriesRepository()
+		accountRepo := factory.NewAccountsRepository()
+
+		report := usecase.NewReport(entryRepo, categoryRepo, accountRepo)
+
+		result, err := report.Execute(usecase.ReportInput{
+			Format:                  format,
+			From:                    from,
+			To:                      until,
+			AccountName:             accountStr,
+			FilterByRealizationDate: byRealization,
+		})
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+
+		categoryMap := make(map[string]*entity.Category)
+		for _, acc := range result.Accounts {
+			categories, err := categoryRepo.GetAll(acc.Name)
+			if err != nil {
+				continue
+			}
+			for _, cat := range categories {
+				categoryMap[cat.Alias] = cat
+			}
+		}
+
+		entries := make([]*entity.Entry, 0)
+		for _, e := range result.Entries {
+			entry := &entity.Entry{
+				Type:              entity.EntryType(e.Type),
+				Amount:            e.Amount,
+				Currency:          e.Currency,
+				Description:       e.Description,
+				CategoryAlias:     e.CategoryAlias,
+				CreditCardName:    e.CreditCardName,
+				Tags:              e.Tags,
+				InstallmentNumber: e.InstallmentNumber,
+				InstallmentTotal:  e.InstallmentTotal,
+				RealizationDate:   e.RealizationDate,
+				PaymentDate:       e.PaymentDate,
+			}
+			entries = append(entries, entry)
+		}
+
+		accounts := make(map[string]*entity.Account)
+		for _, acc := range result.Accounts {
+			accounts[acc.Name] = acc
+		}
+
+		if format == "md" {
+			printer.PrintEntriesByCategoryMarkdown(entries, categoryMap, accounts, accountStr)
+		} else {
+			printer.PrintEntriesByCategoryTable(entries, categoryMap, accounts, accountStr)
+		}
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(reportCmd)
@@ -561,6 +647,7 @@ func init() {
 
 	reportCmd.AddCommand(reportEntriesCmd)
 	reportCmd.AddCommand(reportBalancesCmd)
+	reportCmd.AddCommand(reportByCategoryCmd)
 
 	addCategoryCmd.Flags().String("account", "", "account name (required)")
 	addCategoryCmd.Flags().StringP("type", "t", "", "category type (inc or exp)")
@@ -596,6 +683,12 @@ func init() {
 	reportBalancesCmd.Flags().String("until", "", "end date (DD-MM-YY)")
 	reportBalancesCmd.Flags().String("account", "", "account name")
 	reportBalancesCmd.Flags().String("format", "table", "output format (table or md)")
+
+	reportByCategoryCmd.Flags().String("from", "", "start date (DD-MM-YY)")
+	reportByCategoryCmd.Flags().String("until", "", "end date (DD-MM-YY)")
+	reportByCategoryCmd.Flags().String("account", "", "account name")
+	reportByCategoryCmd.Flags().String("format", "table", "output format (table or md)")
+	reportByCategoryCmd.Flags().Bool("by-realization", false, "filter by realization date instead of payment date")
 }
 
 func getFactory() (*persistence.RepositoryFactory, error) {

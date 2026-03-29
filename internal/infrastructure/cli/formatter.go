@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -429,4 +430,160 @@ func (f *Formatter) getCategoryDisplayName(cat *entity.Category) string {
 		return *cat.Emoji + " " + cat.Name
 	}
 	return cat.Name
+}
+
+type CategoryGroup struct {
+	Name       string
+	Entries    []*entity.Entry
+	Total      float64
+	HasEntries bool
+}
+
+func (f *Formatter) FormatEntriesByCategoryTable(entries []*entity.Entry, categories map[string]*entity.Category, accounts map[string]*entity.Account, filteredAccount string) string {
+	expenses, incomes := f.separateByTypeForReport(entries)
+	var sb strings.Builder
+
+	if len(expenses) > 0 {
+		sb.WriteString(f.formatByCategoryTypeTable(expenses, categories, "Expenses"))
+		sb.WriteString("\n")
+	}
+
+	if len(incomes) > 0 {
+		sb.WriteString(f.formatByCategoryTypeTable(incomes, categories, "Incomes"))
+	}
+
+	return sb.String()
+}
+
+func (f *Formatter) formatByCategoryTypeTable(entries []*entity.Entry, categories map[string]*entity.Category, title string) string {
+	groups := f.groupEntriesByCategory(entries, categories)
+
+	// Sort groups by total (descending)
+	sort.Slice(groups, func(i, j int) bool {
+		return groups[i].Total > groups[j].Total
+	})
+
+	var sb strings.Builder
+	totalAmount := 0.0
+	for _, group := range groups {
+		totalAmount += group.Total
+	}
+
+	sb.WriteString(fmt.Sprintf("=== %s (total %s) ===\n", title, f.locale.FormatCurrency(totalAmount, "BRL")))
+
+	for _, group := range groups {
+		sb.WriteString(fmt.Sprintf("\n-- %s (%s) --\n", group.Name, f.locale.FormatCurrency(group.Total, "BRL")))
+
+		for _, entry := range group.Entries {
+			displayDate := entry.RealizationDate
+			if entry.PaymentDate != nil {
+				displayDate = *entry.PaymentDate
+			}
+			dateStr := f.locale.FormatDate(displayDate)
+			amountStr := f.locale.FormatCurrency(entry.Amount, entry.Currency)
+			desc := f.FormatEntryDescription(entry)
+			tagsStr := ""
+			if len(entry.Tags) > 0 {
+				tagsStr = fmt.Sprintf(" [%s]", strings.Join(entry.Tags, ", "))
+			}
+			sb.WriteString(fmt.Sprintf("%s | %s | %s%s\n", dateStr, amountStr, desc, tagsStr))
+		}
+	}
+
+	sb.WriteString(fmt.Sprintf("\n(Subtotal: %s)\n", f.locale.FormatCurrency(totalAmount, "BRL")))
+
+	return sb.String()
+}
+
+func (f *Formatter) groupEntriesByCategory(entries []*entity.Entry, categories map[string]*entity.Category) []*CategoryGroup {
+	groupMap := make(map[string]*CategoryGroup)
+
+	for _, entry := range entries {
+		var catName string
+		if entry.CategoryAlias != nil {
+			if cat, ok := categories[*entry.CategoryAlias]; ok {
+				catName = f.getCategoryDisplayName(cat)
+			} else {
+				catName = *entry.CategoryAlias
+			}
+		} else {
+			catName = "Sem categoria"
+		}
+
+		if group, ok := groupMap[catName]; ok {
+			group.Entries = append(group.Entries, entry)
+			group.Total += entry.Amount
+		} else {
+			groupMap[catName] = &CategoryGroup{
+				Name:       catName,
+				Entries:    []*entity.Entry{entry},
+				Total:      entry.Amount,
+				HasEntries: true,
+			}
+		}
+	}
+
+	groups := make([]*CategoryGroup, 0, len(groupMap))
+	for _, group := range groupMap {
+		groups = append(groups, group)
+	}
+
+	return groups
+}
+
+func (f *Formatter) FormatEntriesByCategoryMarkdown(entries []*entity.Entry, categories map[string]*entity.Category, accounts map[string]*entity.Account, filteredAccount string) string {
+	expenses, incomes := f.separateByTypeForReport(entries)
+	var sb strings.Builder
+
+	if len(expenses) > 0 {
+		sb.WriteString(f.formatByCategoryTypeMarkdown(expenses, categories, "Expenses"))
+		sb.WriteString("\n")
+	}
+
+	if len(incomes) > 0 {
+		sb.WriteString(f.formatByCategoryTypeMarkdown(incomes, categories, "Incomes"))
+	}
+
+	return sb.String()
+}
+
+func (f *Formatter) formatByCategoryTypeMarkdown(entries []*entity.Entry, categories map[string]*entity.Category, title string) string {
+	groups := f.groupEntriesByCategory(entries, categories)
+
+	// Sort groups by total (descending)
+	sort.Slice(groups, func(i, j int) bool {
+		return groups[i].Total > groups[j].Total
+	})
+
+	var sb strings.Builder
+	totalAmount := 0.0
+	for _, group := range groups {
+		totalAmount += group.Total
+	}
+
+	sb.WriteString(fmt.Sprintf("## %s (total: %s)\n\n", title, f.locale.FormatCurrency(totalAmount, "BRL")))
+
+	for _, group := range groups {
+		sb.WriteString(fmt.Sprintf("### %s (%s)\n\n", group.Name, f.locale.FormatCurrency(group.Total, "BRL")))
+		sb.WriteString("| Date | Amount | Description |\n")
+		sb.WriteString("|------|--------|-------------|\n")
+
+		for _, entry := range group.Entries {
+			displayDate := entry.RealizationDate
+			if entry.PaymentDate != nil {
+				displayDate = *entry.PaymentDate
+			}
+			dateStr := f.locale.FormatDate(displayDate)
+			amountStr := f.locale.FormatCurrency(entry.Amount, entry.Currency)
+			desc := f.FormatEntryDescription(entry)
+			tagsStr := ""
+			if len(entry.Tags) > 0 {
+				tagsStr = fmt.Sprintf(" `[%s]`", strings.Join(entry.Tags, ", "))
+			}
+			sb.WriteString(fmt.Sprintf("| %s | %s | %s%s |\n", dateStr, amountStr, desc, tagsStr))
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
 }

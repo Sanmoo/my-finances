@@ -36,7 +36,7 @@ func (cc *CreditCard) CalculatePaymentDate(realizationDate time.Time) time.Time 
 	month := int(realizationDate.Month())
 	day := realizationDate.Day()
 
-	if day <= cc.ClosingDay {
+	if day < cc.ClosingDay {
 		return time.Date(year, time.Month(month), cc.DueDay, 0, 0, 0, 0, time.UTC)
 	}
 	return time.Date(year, time.Month(month+1), cc.DueDay, 0, 0, 0, 0, time.UTC)

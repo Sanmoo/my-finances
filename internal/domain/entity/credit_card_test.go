@@ -91,7 +91,7 @@ func TestCreditCard_CalculatePaymentDate(t *testing.T) {
 		{
 			name:            "day at closing day",
 			realizationDate: time.Date(2024, 3, 9, 0, 0, 0, 0, time.UTC),
-			expectedMonth:   3,
+			expectedMonth:   4,
 			expectedDay:     16,
 		},
 		{

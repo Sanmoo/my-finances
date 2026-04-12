@@ -1,11 +1,10 @@
 # myfin - CLI de Gestão de Finanças Pessoais
 
-CLI para gerenciamento de finanças pessoais com suporte a múltiplos bancos de dados SQLite, cartões de crédito com rastreamento de faturas, categorias, tags e parsing de expressões matemáticas para valores.
+CLI para gerenciamento de finanças pessoais com armazenamento em arquivos YAML, suporte a múltiplas contas, cartões de crédito com rastreamento de faturas, categorias, tags e parsing de expressões matemáticas para valores.
 
 ## Pré-requisitos
 
 - **Go 1.26+**
-- **GCC** (necessário para compilar o driver SQLite3)
 
 ## Instalação
 
@@ -32,15 +31,18 @@ sudo mv myfin /usr/local/bin/
 
 ## Configuração
 
-Cada banco de dados SQLite contém suas próprias contas, categorias, cartões e lançamentos. Você pode configurar padrões no arquivo `~/.myfin.yaml`:
+Configure padrões no arquivo `~/.myfin.yaml`:
 
 ```yaml
-default.db_path: ./data/main.db
+data.path: ~/.myfin/data
 default.currency: BRL
-default.credit-card: nubank
+locale: pt-BR
 ```
 
-O arquivo é criado automaticamente na primeira configuração.
+O arquivo usa os seguintes defaults se não existir:
+- `data.path`: `~/.myfin/data`
+- `default.currency`: `BRL`
+- `locale`: `pt-BR`
 
 ## Uso Rápido
 
@@ -51,14 +53,21 @@ myfin add account checking
 myfin add account savings
 ```
 
+### Criar tags
+
+```bash
+myfin add tag mensal
+myfin add tag assinatura
+```
+
 ### Criar categorias
 
 ```bash
 # Categoria de despesa
-myfin add category --type exp --name "Transporte" --alias transp --emoji 🚗
+myfin add category "Transporte" --account checking --type exp --alias transp --emoji 🚗
 
 # Categoria de receita
-myfin add category --type inc --name "Salário" --alias sal --emoji 💰
+myfin add category "Salário" --account checking --type inc --alias sal --emoji 💰
 ```
 
 ### Criar cartão de crédito
@@ -71,58 +80,86 @@ myfin add credit-card nubank --closing-day 9 --due-day 16
 
 ```bash
 # Despesa simples
-myfin add expense 45.50 --category transporte --date 21-03-26 --description "Uber"
+myfin add expense 45.50 --account checking --category transp --date 26-03-21 --description "Uber"
 
 # Despesa parcelada no cartão
-myfin add expense 300.00 --credit-card nubank --times 6 --category eletro --date 21-03-10
+myfin add expense 300.00 --account checking --credit-card nubank --times 6 --category eletro --date 26-03-10 --description "TV"
 
-# Com tags
-myfin add expense 120.00 --tags mensal,assinatura --category servicos
+# Com tags (tags devem ser previamente registradas)
+myfin add expense 120.00 --account checking --tags mensal,assinatura --category servicos --date 26-03-15 --description "Spotify"
 ```
 
 ### Adicionar receitas
 
 ```bash
 # Receita simples
-myfin add income 5000.00 --category salario --date 26-03-01
+myfin add income 5000.00 --account checking --category sal --date 26-03-01 --description "Salário"
 
 # Com expressão matemática
-myfin add income 3000+1500 --category renda-extra --description "Freelance"
+myfin add income 3000+1500 --account checking --category renda-extra --date 26-03-15 --description "Freelance"
 ```
 
-### Bancos de dados
-
-Cada banco de dados SQLite é independente. Use `-d` para especificar qual database usar:
+### Relatórios
 
 ```bash
-myfin -d ./data/work.db add expense 100.00 --category comida
-```
+# Listar lançamentos
+myfin report entries --account checking --from 26-03-01 --until 26-03-31
 
-Se não especificado, usa o `default.db_path` da configuração.
+# Listar lançamentos em formato markdown
+myfin report entries --account checking --from 26-03-01 --until 26-03-31 --format md
+
+# Filtrar por tags e categorias
+myfin report entries --account checking --filter-tags mensal --filter-categories transp
+
+# Ver saldos por conta
+myfin report balances --account checking
+
+# Ver saldos em formato markdown
+myfin report balances --account checking --format md
+
+# Agrupar por categoria
+myfin report by-category --account checking --from 26-03-01 --until 26-03-31
+
+# Listar tags registradas
+myfin list tags
+```
 
 ## Referência de Comandos
 
-Use `myfin add --help` e `myfin add <comando> --help` para ver todas as flags disponíveis.
+Use `myfin --help` e `myfin <comando> --help` para ver todas as flags disponíveis.
 
 | Comando | Descrição |
 |---------|-----------|
 | `myfin add account <nome>` | Cria uma conta |
-| `myfin add category` | Cria uma categoria |
-| `myfin add credit-card <nome>` | Cria um cartão de crédito |
-| `myfin add expense [valor]` | Adiciona uma despesa |
-| `myfin add income [valor]` | Adiciona uma receita |
+| `myfin add tag <nome>` | Registra uma tag |
+| `myfin add category <nome>` | Cria uma categoria (`--account`, `--type`, `--alias` obrigatórios) |
+| `myfin add credit-card <nome>` | Cria um cartão de crédito (`--closing-day`, `--due-day` obrigatórios) |
+| `myfin add expense [valor]` | Adiciona uma despesa (`--account`, `--date`, `--description` obrigatórios) |
+| `myfin add income [valor]` | Adiciona uma receita (`--account`, `--date`, `--description` obrigatórios) |
+| `myfin list tags` | Lista todas as tags registradas |
+| `myfin report entries` | Lista lançamentos com filtros |
+| `myfin report balances` | Mostra saldos por conta |
+| `myfin report by-category` | Agrupa lançamentos por categoria |
+
+### Flags de data
+
+O formato de data é flexível:
+- `DD` - dia do mês atual (ex: `15`)
+- `MM-DD` - mês e dia do ano atual (ex: `03-15`)
+- `YY-MM-DD` - ano abreviado (ex: `26-03-15`)
+- `YYYY-MM-DD` - data completa (ex: `2026-03-15`)
 
 ## Expressões Matemáticas
 
 O myfin suporta expressões matemáticas nos valores:
 
 ```bash
-myfin add expense 1000/3 --category compras  # 333.33
-myfin add income 5000+1000 --category bonus  # 6000
-myfin add expense (100+50)*2 --category x   # 300
+myfin add expense 1000/3 --account checking --category compras  # 333.33
+myfin add income 5000+1000 --account checking --category bonus  # 6000
+myfin add expense (100+50)*2 --account checking --category x   # 300
 ```
 
-Operadores suportados: `+`, `-`, `*`, `/` com precedência padrão.
+Operadores suportados: `+`, `-`, `*`, `/` com precedência padrão e suporte a parênteses.
 
 ## Lógica de Fatura de Cartão de Crédito
 
@@ -134,13 +171,32 @@ Para um cartão com `closing-day=9` e `due-day=16`:
 Exemplo com `--times 3`:
 
 ```bash
-myfin add expense 300 --credit-card nubank --times 3 --date 26-03-15
+myfin add expense 300 --account checking --credit-card nubank --times 3 --date 26-03-15 --description "Compra"
 ```
 
 Isso cria 3 parcelas:
 1. Realização: 15/03, Vencimento: 16/04
 2. Realização: 15/04, Vencimento: 16/05
 3. Realização: 15/05, Vencimento: 16/06
+
+## Estrutura de Dados
+
+Os dados são armazenados em arquivos YAML no diretório configurado (`data.path`):
+
+```
+~/.myfin/data/
+├── accounts.yaml              # Lista de contas
+├── credit_cards.yaml          # Cartões de crédito
+├── tags.yaml                  # Tags registradas
+├── checking/
+│   ├── categories.yaml        # Categorias da conta
+│   └── 2026/
+│       └── 2026-03-checking-entries.yaml  # Lançamentos de março
+└── savings/
+    └── ...
+```
+
+Cada arquivo de lançamentos contém entradas do tipo `income` ou `expense` com data de realização e data de pagamento (quando aplicável).
 
 ## Arquitetura
 
@@ -152,14 +208,15 @@ myfin/
 ├── internal/
 │   ├── domain/entity/      # Entidades de domínio (pura lógica de negócio)
 │   ├── core/
-│   │   ├── usecase/       # Casos de uso
-│   │   └── port/          # Interfaces dos repositórios
+│   │   ├── usecase/        # Casos de uso
+│   │   └── port/           # Interfaces dos repositórios
 │   └── infrastructure/
-│       ├── persistence/    # Implementações SQLite
+│       ├── persistence/    # Implementações YAML
 │       ├── cli/            # Formatadores de saída
-│       └── config/         # Loader de configuração
-├── migrations/             # Migrations SQL (golang-migrate)
-└── pkg/expr/              # Parser de expressões matemáticas
+│       ├── config/         # Loader de configuração
+│       └── i18n/           # Internacionalização
+
+└── pkg/expr/               # Parser de expressões matemáticas
 ```
 
 ### Camadas

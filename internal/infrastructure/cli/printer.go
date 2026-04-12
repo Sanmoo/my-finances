@@ -70,8 +70,8 @@ func (p *Printer) PrintEntry(entry *entity.Entry) {
 	fmt.Fprintln(p.output, p.formatter.FormatEntry(entry))
 }
 
-func (p *Printer) PrintEntryWithCategory(entry *entity.Entry, category *entity.Category) {
-	fmt.Fprintln(p.output, p.formatter.FormatEntryWithCategory(entry, category))
+func (p *Printer) PrintEntryWithCategory(entry *entity.Entry, category *entity.Category, accountName string) {
+	fmt.Fprintln(p.output, p.formatter.FormatEntryWithCategory(entry, category, accountName))
 }
 
 func (p *Printer) PrintEntriesTable(entries []*entity.Entry, categories map[string]*entity.Category, accounts map[string]*entity.Account, filteredAccount string) {

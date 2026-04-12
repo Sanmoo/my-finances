@@ -62,10 +62,11 @@ func (f *Formatter) FormatEntry(entry *entity.Entry) string {
 	return strings.Join(lines, "\n")
 }
 
-func (f *Formatter) FormatEntryWithCategory(entry *entity.Entry, category *entity.Category) string {
+func (f *Formatter) FormatEntryWithCategory(entry *entity.Entry, category *entity.Category, accountName string) string {
 	var lines []string
 	lines = append(lines, fmt.Sprintf("Entry created"))
 	lines = append(lines, fmt.Sprintf("  Type: %s, Amount: %s", entry.Type, f.locale.FormatCurrency(entry.Amount, entry.Currency)))
+	lines = append(lines, fmt.Sprintf("  Account: %s", accountName))
 	lines = append(lines, fmt.Sprintf("  Date: %s", f.locale.FormatDate(entry.RealizationDate)))
 	if entry.PaymentDate != nil {
 		lines = append(lines, fmt.Sprintf("  Payment Date: %s", f.locale.FormatDate(*entry.PaymentDate)))

@@ -53,43 +53,6 @@ func (r *EntriesRepository) Create(entry *entity.Entry, accountName string) erro
 	yamlEntry.FromEntity(entry)
 	data.Entries = append(data.Entries, yamlEntry)
 
-	sort.Slice(data.Entries, func(i, j int) bool {
-		e1 := data.Entries[i]
-		e2 := data.Entries[j]
-
-		var pd1, pd2 *time.Time
-		if e1.PaymentDate != nil && *e1.PaymentDate != "" {
-			if t, err := time.Parse("2006-01-02", *e1.PaymentDate); err == nil {
-				pd1 = &t
-			}
-		}
-		if e2.PaymentDate != nil && *e2.PaymentDate != "" {
-			if t, err := time.Parse("2006-01-02", *e2.PaymentDate); err == nil {
-				pd2 = &t
-			}
-		}
-
-		if pd1 == nil && pd2 == nil {
-			t1, _ := time.Parse("2006-01-02", e1.RealizationDate)
-			t2, _ := time.Parse("2006-01-02", e2.RealizationDate)
-			return t1.Before(t2)
-		}
-		if pd1 == nil {
-			t1, _ := time.Parse("2006-01-02", e1.RealizationDate)
-			return t1.Before(*pd2)
-		}
-		if pd2 == nil {
-			t1, _ := time.Parse("2006-01-02", e1.RealizationDate)
-			return t1.Before(*pd1)
-		}
-		if pd1.Equal(*pd2) {
-			t1, _ := time.Parse("2006-01-02", e1.RealizationDate)
-			t2, _ := time.Parse("2006-01-02", e2.RealizationDate)
-			return t1.Before(t2)
-		}
-		return pd1.Before(*pd2)
-	})
-
 	return Write(path, data)
 }
 

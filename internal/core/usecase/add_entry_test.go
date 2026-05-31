@@ -77,6 +77,34 @@ func TestAddEntry_Execute(t *testing.T) {
 		mockEntryRepo.AssertExpectations(t)
 	})
 
+	t.Run("success with negative expense amount", func(t *testing.T) {
+		mockEntryRepo := new(MockEntriesRepository)
+		mockCategoryRepo := new(MockCategoriesRepository)
+		mockTagRepo := new(MockTagsRepository)
+		mockCCRepo := new(MockCreditCardsRepository)
+		uc := NewAddEntry(mockEntryRepo, mockCategoryRepo, mockTagRepo, mockCCRepo)
+
+		mockEntryRepo.On("Create", mock.AnythingOfType("*entity.Entry"), "test-account").Return(nil)
+
+		date := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
+		result, err := uc.Execute(AddEntryInput{
+			Type:        entity.EntryTypeExpense,
+			Amount:      "-20",
+			Currency:    "BRL",
+			Description: "Refund adjustment",
+			Date:        date,
+			AccountName: "test-account",
+		})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Len(t, result.Entries, 1)
+		assert.Equal(t, entity.EntryTypeExpense, result.Entries[0].Type)
+		assert.Equal(t, -20.00, result.Entries[0].Amount)
+
+		mockEntryRepo.AssertExpectations(t)
+	})
+
 	t.Run("success with math expression", func(t *testing.T) {
 		mockEntryRepo := new(MockEntriesRepository)
 		mockCategoryRepo := new(MockCategoriesRepository)

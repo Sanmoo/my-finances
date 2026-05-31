@@ -38,6 +38,15 @@ func TestNewEntry(t *testing.T) {
 			wantErr:   nil,
 		},
 		{
+			name:      "valid negative expense entry",
+			entryType: EntryTypeExpense,
+			amount:    -20.00,
+			currency:  "BRL",
+			date:      baseDate,
+			opts:      []EntryOption{},
+			wantErr:   nil,
+		},
+		{
 			name:      "invalid entry type",
 			entryType: "invalid",
 			amount:    100.00,
@@ -54,7 +63,7 @@ func TestNewEntry(t *testing.T) {
 			wantErr:   ErrInvalidAmount,
 		},
 		{
-			name:      "negative amount",
+			name:      "negative income amount",
 			entryType: EntryTypeIncome,
 			amount:    -10.00,
 			currency:  "BRL",

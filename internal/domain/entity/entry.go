@@ -40,7 +40,7 @@ func NewEntry(entryType EntryType, amount float64, currency string, realizationD
 	if entryType != EntryTypeIncome && entryType != EntryTypeExpense {
 		return nil, ErrInvalidEntryType
 	}
-	if amount <= 0 {
+	if amount == 0 || (entryType == EntryTypeIncome && amount < 0) {
 		return nil, ErrInvalidAmount
 	}
 	if strings.TrimSpace(currency) == "" {

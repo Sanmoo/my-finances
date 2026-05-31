@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ var (
 )
 
 func main() {
+	rootCmd.SetArgs(normalizeNegativeAmountArgs(os.Args[1:]))
 	if err := rootCmd.Execute(); err != nil {
 		printer.PrintError(err.Error())
 		os.Exit(1)
@@ -689,6 +691,27 @@ func init() {
 	reportByCategoryCmd.Flags().String("account", "", "account name")
 	reportByCategoryCmd.Flags().String("format", "table", "output format (table or md)")
 	reportByCategoryCmd.Flags().Bool("by-realization", false, "filter by realization date instead of payment date")
+}
+
+func normalizeNegativeAmountArgs(args []string) []string {
+	if len(args) == 0 || args[len(args)-1] == "--" || !isNegativeNumber(args[len(args)-1]) {
+		return args
+	}
+	if len(args) >= 2 && args[0] == "add" && args[1] == "expense" {
+		normalized := make([]string, 0, len(args)+1)
+		normalized = append(normalized, args[:len(args)-1]...)
+		normalized = append(normalized, "--", args[len(args)-1])
+		return normalized
+	}
+	return args
+}
+
+func isNegativeNumber(value string) bool {
+	if len(value) < 2 || value[0] != '-' {
+		return false
+	}
+	_, err := strconv.ParseFloat(value, 64)
+	return err == nil
 }
 
 func getFactory() (*persistence.RepositoryFactory, error) {

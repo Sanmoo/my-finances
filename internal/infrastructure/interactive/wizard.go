@@ -174,7 +174,7 @@ func (w *Wizard) runOneCycle() error {
 	}
 
 	// Execute via use case
-	return w.execute(entryType, amount, accountName, date, description, categoryAlias, creditCardName, tags, times, cmd)
+	return w.execute(entryType, amount, accountName, date, description, categoryAlias, creditCardName, tags, times)
 }
 
 // isTerminal checks if fd is a character device (terminal).
@@ -406,7 +406,6 @@ func (w *Wizard) execute(
 	creditCardName string,
 	tags []string,
 	times int,
-	cmdStr string,
 ) error {
 	uc := usecase.NewAddEntry(w.entryRepo, w.categoryRepo, w.tagRepo, w.ccRepo)
 
@@ -430,11 +429,6 @@ func (w *Wizard) execute(
 	for _, entry := range result.Entries {
 		w.printer.PrintEntryWithCategory(entry, result.Category, accountName)
 	}
-
-	// Print the equivalent command
-	fmt.Println()
-	fmt.Println("Comando executado:")
-	fmt.Printf("  %s\n", cmdStr)
 
 	return nil
 }

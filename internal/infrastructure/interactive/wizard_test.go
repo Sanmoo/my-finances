@@ -509,7 +509,6 @@ func TestWizard_execute_Success(t *testing.T) {
 	err := w.execute(
 		entity.EntryTypeExpense, "50.00", "nubank", date, "almoço",
 		"food", "", []string{"work"}, 1,
-		"myfin add expense 50.00 --account nubank --date 2025-06-15 --description almoço --category food --tags work",
 	)
 	require.NoError(t, err)
 
@@ -544,7 +543,6 @@ func TestWizard_execute_WithCreditCard(t *testing.T) {
 	err := w.execute(
 		entity.EntryTypeExpense, "1000", "nubank", date, "compra",
 		"food", "nu", nil, 3,
-		"myfin add expense 1000 --account nubank --date 2025-06-15 --description compra --category food --credit-card nu --times 3",
 	)
 	require.NoError(t, err)
 

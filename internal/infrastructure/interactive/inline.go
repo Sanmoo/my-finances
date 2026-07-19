@@ -3,7 +3,6 @@ package interactive
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/Sanmoo/my-finances/internal/core/usecase"
 	"github.com/Sanmoo/my-finances/internal/domain/entity"
@@ -22,13 +21,10 @@ func (w *Wizard) inlineAddAccount() (string, error) {
 			continue
 		}
 
+		// Repo silently ignores duplicates; no pre-check needed.
 		uc := usecase.NewAddAccount(w.accountRepo)
 		result, err := uc.Execute(usecase.AddAccountInput{Name: name})
 		if err != nil {
-			if strings.Contains(err.Error(), "already exists") {
-				fmt.Println("Conta já existe.")
-				return name, nil
-			}
 			return "", fmt.Errorf("erro ao criar conta: %w", err)
 		}
 		w.printer.PrintAccount(result.Account)
@@ -93,13 +89,18 @@ func (w *Wizard) inlineAddTag() (string, error) {
 			continue
 		}
 
-		uc := usecase.NewAddTag(w.tagRepo)
-		_, err = uc.Execute(usecase.AddTagInput{Name: name})
+		// Check for duplicates before creating (repo blindly appends).
+		existing, err := w.tagRepo.GetByName(name)
 		if err != nil {
-			if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "already registered") {
-				fmt.Println("Tag já existe, usando.")
-				return name, nil
-			}
+			return "", fmt.Errorf("erro ao verificar tag: %w", err)
+		}
+		if existing != nil {
+			fmt.Println("Tag já existe, usando.")
+			return name, nil
+		}
+
+		uc := usecase.NewAddTag(w.tagRepo)
+		if _, err := uc.Execute(usecase.AddTagInput{Name: name}); err != nil {
 			return "", fmt.Errorf("erro ao criar tag: %w", err)
 		}
 		fmt.Printf("Tag criada: %s\n", name)

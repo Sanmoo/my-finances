@@ -308,18 +308,23 @@ func (w *Wizard) promptTags() ([]string, error) {
 		return nil, fmt.Errorf("erro ao carregar tags: %w", err)
 	}
 
-	options := make([]string, 0, len(allTags)+1)
+	options := []string{selectorNone, selectorNewTag}
 	for _, t := range allTags {
 		options = append(options, t.Name)
 	}
-	options = append(options, selectorNewTag)
 
 	selected, err := w.selector.MultiSelect("Tags", options)
 	if err != nil {
 		return nil, err
 	}
 
-	// Check if "new tag" was selected
+	// If "none" was selected, ignore everything else and return empty
+	for _, s := range selected {
+		if s == selectorNone {
+			return []string{}, nil
+		}
+	}
+
 	var tags []string
 	for _, s := range selected {
 		if s == selectorNewTag {

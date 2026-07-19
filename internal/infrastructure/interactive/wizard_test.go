@@ -258,6 +258,31 @@ func TestWizard_promptTags_Empty(t *testing.T) {
 	assert.Empty(t, tags)
 }
 
+func TestWizard_promptTags_None(t *testing.T) {
+	tagRepo := new(mockTagsRepo)
+	tagRepo.On("GetAll").Return([]*entity.Tag{{Name: "work"}, {Name: "vr"}}, nil)
+	sel := &fakeSelector{
+		multiSelectResponses: [][]string{{selectorNone}},
+	}
+	w := &Wizard{selector: sel, tagRepo: tagRepo}
+	tags, err := w.promptTags()
+	require.NoError(t, err)
+	assert.Empty(t, tags)
+}
+
+func TestWizard_promptTags_NoneTakesPriority(t *testing.T) {
+	tagRepo := new(mockTagsRepo)
+	tagRepo.On("GetAll").Return([]*entity.Tag{{Name: "work"}}, nil)
+	sel := &fakeSelector{
+		// Selecting both "none" and a tag — none should win
+		multiSelectResponses: [][]string{{selectorNone, "work"}},
+	}
+	w := &Wizard{selector: sel, tagRepo: tagRepo}
+	tags, err := w.promptTags()
+	require.NoError(t, err)
+	assert.Empty(t, tags)
+}
+
 func TestWizard_promptTags_InlineCreate(t *testing.T) {
 	tagRepo := new(mockTagsRepo)
 	tagRepo.On("GetAll").Return([]*entity.Tag{{Name: "work"}}, nil)

@@ -194,6 +194,7 @@ func (w *Wizard) promptType() (entity.EntryType, error) {
 	if !ok {
 		return "", errCancelled
 	}
+	fmt.Printf("Tipo: %s\n", choice)
 	if choice == choiceExpense {
 		return entity.EntryTypeExpense, nil
 	}
@@ -221,8 +222,14 @@ func (w *Wizard) promptAccount() (string, error) {
 	}
 
 	if choice == selectorNewAccount {
-		return w.inlineAddAccount()
+		name, err := w.inlineAddAccount()
+		if err != nil {
+			return "", err
+		}
+		fmt.Printf("Conta: %s\n", name)
+		return name, nil
 	}
+	fmt.Printf("Conta: %s\n", choice)
 	return choice, nil
 }
 
@@ -294,10 +301,17 @@ func (w *Wizard) promptCategory(accountName string, entryType entity.EntryType) 
 
 	switch choice {
 	case selectorNone:
+		fmt.Printf("Categoria: %s\n", selectorNone)
 		return "", nil
 	case selectorNewCategory:
-		return w.inlineAddCategory(accountName, wantType)
+		alias, err := w.inlineAddCategory(accountName, wantType)
+		if err != nil {
+			return "", err
+		}
+		fmt.Printf("Categoria: %s\n", alias)
+		return alias, nil
 	default:
+		fmt.Printf("Categoria: %s\n", choice)
 		return choice, nil
 	}
 }
@@ -321,6 +335,7 @@ func (w *Wizard) promptTags() ([]string, error) {
 	// If "none" was selected, ignore everything else and return empty
 	for _, s := range selected {
 		if s == selectorNone {
+			fmt.Printf("Tags: %s\n", selectorNone)
 			return []string{}, nil
 		}
 	}
@@ -336,6 +351,11 @@ func (w *Wizard) promptTags() ([]string, error) {
 		} else {
 			tags = append(tags, s)
 		}
+	}
+	if len(tags) == 0 {
+		fmt.Printf("Tags: %s\n", selectorNone)
+	} else {
+		fmt.Printf("Tags: %s\n", strings.Join(tags, ", "))
 	}
 	return tags, nil
 }
@@ -361,6 +381,7 @@ func (w *Wizard) promptCreditCard() (string, int, error) {
 
 	switch choice {
 	case selectorNone:
+		fmt.Printf("Cartão de crédito: %s\n", selectorNone)
 		return "", 1, nil
 	case selectorNewCard:
 		name, err := w.inlineAddCreditCard()
@@ -369,6 +390,7 @@ func (w *Wizard) promptCreditCard() (string, int, error) {
 		}
 		choice = name
 	}
+	fmt.Printf("Cartão de crédito: %s\n", choice)
 
 	// Prompt for times
 	times, err := w.promptTimes()

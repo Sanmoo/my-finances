@@ -14,6 +14,7 @@ import (
 	"github.com/Sanmoo/my-finances/internal/domain/entity"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/cli"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/config"
+	"github.com/Sanmoo/my-finances/internal/infrastructure/interactive"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/persistence"
 )
 
@@ -34,6 +35,12 @@ func main() {
 var rootCmd = &cobra.Command{
 	Use:   "myfin",
 	Short: "A personal finance management CLI tool",
+}
+
+var interactiveCmd = &cobra.Command{
+	Use:   "interactive",
+	Short: "Start interactive wizard for adding entries",
+	RunE:  runInteractive,
 }
 
 var addCmd = &cobra.Command{
@@ -634,6 +641,9 @@ var reportByCategoryCmd = &cobra.Command{
 }
 
 func init() {
+	rootCmd.RunE = runInteractive
+	rootCmd.AddCommand(interactiveCmd)
+
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(reportCmd)
 
@@ -771,6 +781,34 @@ func parseDate(dateStr string) time.Time {
 	}
 
 	return time.Time{}
+}
+
+func runInteractive(cmd *cobra.Command, args []string) error {
+	factory, err := getFactory()
+	if err != nil {
+		return err
+	}
+
+	selector, err := interactive.NewFzfSelector(interactive.DefaultFzfOptions())
+	if err != nil {
+		return err
+	}
+
+	prompter := interactive.NewStdioPrompter()
+
+	w := interactive.NewWizard(
+		prompter,
+		selector,
+		factory.NewEntriesRepository(),
+		factory.NewCategoriesRepository(),
+		factory.NewTagsRepository(),
+		factory.NewCreditCardsRepository(),
+		factory.NewAccountsRepository(),
+		getDefaultCurrency(),
+		printer,
+	)
+
+	return w.Run()
 }
 
 func parseCommaSeparated(s string) []string {

@@ -99,6 +99,7 @@ func (s *FzfSelector) buildArgs(title string, multi bool) []string {
 	}
 	if multi {
 		args = append(args, "--multi")
+		args = append(args, "--header", "TAB seleciona/desmarca, ENTER confirma")
 	}
 	if s.opts.Height != "" {
 		args = append(args, "--height="+s.opts.Height)

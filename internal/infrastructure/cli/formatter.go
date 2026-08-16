@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sanmoo/my-finances/internal/core/usecase"
 	"github.com/Sanmoo/my-finances/internal/domain/entity"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/i18n"
 )
@@ -142,6 +143,166 @@ func (f *Formatter) FormatEntryDescription(entry *entity.Entry) string {
 		desc = ccPart
 	}
 	return desc
+}
+
+func (f *Formatter) FormatStatementTable(output *usecase.StatementOutput, categories map[string]*entity.Category) string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("=== Invoice for card %q — %s %d ===\n", output.Card.Name, output.Month.Month().String(), output.Month.Year()))
+	sb.WriteString(fmt.Sprintf("Purchase window: %s to %s\n", f.locale.FormatDate(output.WindowStart), f.locale.FormatDate(output.WindowEnd)))
+	sb.WriteString(fmt.Sprintf("Due date: %s\n", f.locale.FormatDate(output.DueDate)))
+	if totals := f.formatStatementTotals(output.Totals); totals != "" {
+		sb.WriteString("Total: " + totals + "\n")
+	}
+
+	if len(output.Lines) == 0 {
+		sb.WriteString("\nNo entries for this invoice.\n")
+		return sb.String()
+	}
+
+	showAccount := statementShowsAccount(output.Lines)
+	catWidth := f.statementCategoryWidth(output.Lines, categories)
+	accountWidth := statementAccountWidth(output.Lines)
+
+	headerFormat := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s", -catWidth)
+	if showAccount {
+		headerFormat += fmt.Sprintf(" | %%%ds", -accountWidth)
+	}
+	headerArgs := []interface{}{"Date", "Category", "Amount", "Description"}
+	if showAccount {
+		headerArgs = append(headerArgs, "Account")
+	}
+	sb.WriteString(fmt.Sprintf(headerFormat, headerArgs...))
+	sb.WriteString("\n")
+
+	separatorLen := 12 + 3 + catWidth + 3 + 12 + 3 + 11
+	if showAccount {
+		separatorLen += 3 + accountWidth
+	}
+	sb.WriteString(strings.Repeat("-", separatorLen) + "\n")
+
+	rowFormat := fmt.Sprintf("%%-12s | %%%ds | %%-12s | %%s", -catWidth)
+	if showAccount {
+		rowFormat += fmt.Sprintf(" | %%%ds", -accountWidth)
+	}
+	for _, line := range output.Lines {
+		entry := line.Entry
+		dateStr := f.locale.FormatDate(entry.RealizationDate)
+		catName := ""
+		if entry.CategoryAlias != nil {
+			catName = f.getCategoryDisplayName(categories[*entry.CategoryAlias])
+		}
+		amountStr := f.locale.FormatCurrency(entry.Amount, entry.Currency)
+		desc := f.formatStatementDescription(entry)
+
+		if showAccount {
+			sb.WriteString(fmt.Sprintf(rowFormat, dateStr, catName, amountStr, desc, line.AccountName) + "\n")
+		} else {
+			sb.WriteString(fmt.Sprintf(rowFormat, dateStr, catName, amountStr, desc) + "\n")
+		}
+	}
+
+	return sb.String()
+}
+
+func (f *Formatter) FormatStatementMarkdown(output *usecase.StatementOutput, categories map[string]*entity.Category) string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("# Invoice for card %q — %s %d\n\n", output.Card.Name, output.Month.Month().String(), output.Month.Year()))
+	sb.WriteString(fmt.Sprintf("**Purchase window:** %s to %s\n", f.locale.FormatDate(output.WindowStart), f.locale.FormatDate(output.WindowEnd)))
+	sb.WriteString(fmt.Sprintf("**Due date:** %s\n", f.locale.FormatDate(output.DueDate)))
+	if totals := f.formatStatementTotals(output.Totals); totals != "" {
+		sb.WriteString("**Total:** " + totals + "\n")
+	}
+	sb.WriteString("\n")
+
+	if len(output.Lines) == 0 {
+		sb.WriteString("No entries for this invoice.\n")
+		return sb.String()
+	}
+
+	showAccount := statementShowsAccount(output.Lines)
+
+	sb.WriteString("| Date | Category | Amount | Description |")
+	if showAccount {
+		sb.WriteString(" Account |")
+	}
+	sb.WriteString("\n")
+	sb.WriteString("|------|----------|--------|-------------|")
+	if showAccount {
+		sb.WriteString("---------|")
+	}
+	sb.WriteString("\n")
+
+	for _, line := range output.Lines {
+		entry := line.Entry
+		dateStr := f.locale.FormatDate(entry.RealizationDate)
+		catName := ""
+		if entry.CategoryAlias != nil {
+			catName = f.getCategoryDisplayName(categories[*entry.CategoryAlias])
+		}
+		amountStr := f.locale.FormatCurrency(entry.Amount, entry.Currency)
+		desc := f.formatStatementDescription(entry)
+
+		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s |", dateStr, catName, amountStr, desc))
+		if showAccount {
+			sb.WriteString(" " + line.AccountName + " |")
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
+}
+
+func (f *Formatter) formatStatementDescription(entry *entity.Entry) string {
+	desc := entry.Description
+	if entry.InstallmentTotal > 1 {
+		desc += fmt.Sprintf(" (%d/%d)", entry.InstallmentNumber, entry.InstallmentTotal)
+	}
+	if len(entry.Tags) > 0 {
+		desc += fmt.Sprintf(" [%s]", strings.Join(entry.Tags, ", "))
+	}
+	return desc
+}
+
+func (f *Formatter) formatStatementTotals(totals []usecase.CurrencyTotal) string {
+	parts := make([]string, 0, len(totals))
+	for _, t := range totals {
+		parts = append(parts, f.locale.FormatCurrency(t.Amount, t.Currency))
+	}
+	return strings.Join(parts, " | ")
+}
+
+func statementShowsAccount(lines []usecase.StatementLine) bool {
+	seen := make(map[string]struct{}, len(lines))
+	for _, line := range lines {
+		seen[line.AccountName] = struct{}{}
+	}
+	return len(seen) > 1
+}
+
+func statementAccountWidth(lines []usecase.StatementLine) int {
+	minWidth := len("Account")
+	for _, line := range lines {
+		if len(line.AccountName) > minWidth {
+			minWidth = len(line.AccountName)
+		}
+	}
+	return minWidth
+}
+
+func (f *Formatter) statementCategoryWidth(lines []usecase.StatementLine, categories map[string]*entity.Category) int {
+	minWidth := len("Category")
+	for _, line := range lines {
+		entry := line.Entry
+		if entry.CategoryAlias != nil {
+			displayName := f.getCategoryDisplayName(categories[*entry.CategoryAlias])
+			if len(displayName) > minWidth {
+				minWidth = len(displayName)
+			}
+		}
+	}
+	return minWidth
 }
 
 func (f *Formatter) FormatEntriesTable(entries []*entity.Entry, categories map[string]*entity.Category, accounts map[string]*entity.Account, filteredAccount string) string {

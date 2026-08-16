@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sanmoo/my-finances/internal/core/usecase"
 	"github.com/Sanmoo/my-finances/internal/domain/entity"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/i18n"
 	"github.com/stretchr/testify/assert"
@@ -370,5 +371,133 @@ func TestFormatEntriesMarkdown_PaymentDate(t *testing.T) {
 		output := f.FormatEntriesMarkdown(entries, categories, accounts, "")
 
 		assert.Contains(t, output, "16/04/2026")
+	})
+}
+
+func statementTestOutput() *usecase.StatementOutput {
+	entry1 := &entity.Entry{
+		Type:              entity.EntryTypeExpense,
+		Amount:            100.00,
+		Currency:          "BRL",
+		Description:       "May purchase",
+		CategoryAlias:     strPtr("rest"),
+		CreditCardName:    strPtr("main"),
+		Tags:              []string{"credito"},
+		InstallmentNumber: 1,
+		InstallmentTotal:  2,
+		RealizationDate:   time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC),
+	}
+	entry2 := &entity.Entry{
+		Type:            entity.EntryTypeExpense,
+		Amount:          50.50,
+		Currency:        "BRL",
+		Description:     "June purchase",
+		CategoryAlias:   strPtr("rest"),
+		CreditCardName:  strPtr("main"),
+		RealizationDate: time.Date(2026, 6, 5, 0, 0, 0, 0, time.UTC),
+	}
+	return &usecase.StatementOutput{
+		Card:        &entity.CreditCard{Name: "main", ClosingDay: 9, DueDay: 16},
+		Month:       time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		WindowStart: time.Date(2026, 5, 9, 0, 0, 0, 0, time.UTC),
+		WindowEnd:   time.Date(2026, 6, 8, 0, 0, 0, 0, time.UTC),
+		DueDate:     time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC),
+		Lines: []usecase.StatementLine{
+			{Entry: entry1, AccountName: "main"},
+			{Entry: entry2, AccountName: "deh"},
+		},
+		Totals: []usecase.CurrencyTotal{{Currency: "BRL", Amount: 150.50}},
+	}
+}
+
+func TestFormatStatementTable(t *testing.T) {
+	f := newTestFormatter()
+	categories := map[string]*entity.Category{
+		"rest": {Name: "Restaurante", Alias: "rest", Emoji: strPtr("🍽"), Type: entity.CategoryTypeExpense},
+	}
+
+	t.Run("prints header with card, month, window, due date and total", func(t *testing.T) {
+		output := f.FormatStatementTable(statementTestOutput(), categories)
+
+		assert.Contains(t, output, `Invoice for card "main" — June 2026`)
+		assert.Contains(t, output, "Purchase window: 09/05/2026 to 08/06/2026")
+		assert.Contains(t, output, "Due date: 16/06/2026")
+		assert.Contains(t, output, "Total: R$ 150,50")
+	})
+
+	t.Run("prints rows with realization date, category, description, installment and tags", func(t *testing.T) {
+		output := f.FormatStatementTable(statementTestOutput(), categories)
+
+		assert.Contains(t, output, "20/05/2026")
+		assert.Contains(t, output, "🍽 Restaurante")
+		assert.Contains(t, output, "May purchase (1/2) [credito]")
+	})
+
+	t.Run("shows account column when lines span multiple accounts", func(t *testing.T) {
+		output := f.FormatStatementTable(statementTestOutput(), categories)
+
+		assert.Contains(t, output, "Account")
+		assert.Contains(t, output, "main")
+		assert.Contains(t, output, "deh")
+	})
+
+	t.Run("omits account column for a single account", func(t *testing.T) {
+		out := statementTestOutput()
+		out.Lines = out.Lines[:1]
+
+		output := f.FormatStatementTable(out, categories)
+
+		assert.NotContains(t, output, "Account")
+		assert.NotContains(t, output, "deh")
+	})
+
+	t.Run("prints empty message when there are no lines", func(t *testing.T) {
+		out := statementTestOutput()
+		out.Lines = nil
+		out.Totals = nil
+
+		output := f.FormatStatementTable(out, categories)
+
+		assert.Contains(t, output, "No entries for this invoice")
+	})
+
+	t.Run("prints one total per currency", func(t *testing.T) {
+		out := statementTestOutput()
+		out.Totals = []usecase.CurrencyTotal{
+			{Currency: "BRL", Amount: 150.50},
+			{Currency: "USD", Amount: 20.00},
+		}
+
+		output := f.FormatStatementTable(out, categories)
+
+		assert.Contains(t, output, "Total: R$ 150,50 | $ 20,00")
+	})
+}
+
+func TestFormatStatementMarkdown(t *testing.T) {
+	f := newTestFormatter()
+	categories := map[string]*entity.Category{
+		"rest": {Name: "Restaurante", Alias: "rest", Emoji: strPtr("🍽"), Type: entity.CategoryTypeExpense},
+	}
+
+	t.Run("prints markdown header, rows and total", func(t *testing.T) {
+		output := f.FormatStatementMarkdown(statementTestOutput(), categories)
+
+		assert.Contains(t, output, `# Invoice for card "main" — June 2026`)
+		assert.Contains(t, output, "**Purchase window:** 09/05/2026 to 08/06/2026")
+		assert.Contains(t, output, "**Due date:** 16/06/2026")
+		assert.Contains(t, output, "**Total:** R$ 150,50")
+		assert.Contains(t, output, "| 20/05/2026 |")
+		assert.Contains(t, output, "May purchase (1/2) [credito]")
+	})
+
+	t.Run("prints empty message when there are no lines", func(t *testing.T) {
+		out := statementTestOutput()
+		out.Lines = nil
+		out.Totals = nil
+
+		output := f.FormatStatementMarkdown(out, categories)
+
+		assert.Contains(t, output, "No entries for this invoice")
 	})
 }

@@ -554,6 +554,76 @@ var reportBalancesCmd = &cobra.Command{
 	},
 }
 
+var reportStatementCmd = &cobra.Command{
+	Use:   "statement --card <name> --month <MM|YY-MM|YYYY-MM> [--account name] [--format table|md]",
+	Short: "Show a credit card invoice (fatura) for a month",
+	Run: func(cmd *cobra.Command, args []string) {
+		factory, err := getFactory()
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+
+		cardStr, _ := cmd.Flags().GetString("card")
+		monthStr, _ := cmd.Flags().GetString("month")
+		accountStr, _ := cmd.Flags().GetString("account")
+		format, _ := cmd.Flags().GetString("format")
+
+		if cardStr == "" {
+			printer.PrintError("--card is required")
+			return
+		}
+		if monthStr == "" {
+			printer.PrintError("--month is required")
+			return
+		}
+		month, err := parseMonth(monthStr)
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+
+		entryRepo := factory.NewEntriesRepository()
+		ccRepo := factory.NewCreditCardsRepository()
+		accountRepo := factory.NewAccountsRepository()
+
+		statement := usecase.NewStatement(entryRepo, ccRepo, accountRepo)
+		result, err := statement.Execute(usecase.StatementInput{
+			CreditCardName: cardStr,
+			Year:           month.Year(),
+			Month:          month.Month(),
+			AccountName:    accountStr,
+		})
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+
+		categoryMap := make(map[string]*entity.Category)
+		categoryRepo := factory.NewCategoriesRepository()
+		accounts, err := accountRepo.GetAll()
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
+		for _, acc := range accounts {
+			categories, err := categoryRepo.GetAll(acc.Name)
+			if err != nil {
+				continue
+			}
+			for _, cat := range categories {
+				categoryMap[cat.Alias] = cat
+			}
+		}
+
+		if format == "md" {
+			printer.PrintStatementMarkdown(result, categoryMap)
+		} else {
+			printer.PrintStatementTable(result, categoryMap)
+		}
+	},
+}
+
 var reportByCategoryCmd = &cobra.Command{
 	Use:   "by-category [--from DD-MM-YY] [--until DD-MM-YY] [--account name] [--format table|md] [--by-realization]",
 	Short: "List entries grouped by category",
@@ -659,6 +729,7 @@ func init() {
 
 	reportCmd.AddCommand(reportEntriesCmd)
 	reportCmd.AddCommand(reportBalancesCmd)
+	reportCmd.AddCommand(reportStatementCmd)
 	reportCmd.AddCommand(reportByCategoryCmd)
 
 	addCategoryCmd.Flags().String("account", "", "account name (required)")
@@ -695,6 +766,11 @@ func init() {
 	reportBalancesCmd.Flags().String("until", "", "end date (DD-MM-YY)")
 	reportBalancesCmd.Flags().String("account", "", "account name")
 	reportBalancesCmd.Flags().String("format", "table", "output format (table or md)")
+
+	reportStatementCmd.Flags().String("card", "", "credit card name (required)")
+	reportStatementCmd.Flags().String("month", "", "invoice month (MM, YY-MM or YYYY-MM)")
+	reportStatementCmd.Flags().String("account", "", "account name")
+	reportStatementCmd.Flags().String("format", "table", "output format (table or md)")
 
 	reportByCategoryCmd.Flags().String("from", "", "start date (DD-MM-YY)")
 	reportByCategoryCmd.Flags().String("until", "", "end date (DD-MM-YY)")
@@ -747,6 +823,30 @@ func getDefaultCurrency() string {
 		return "BRL"
 	}
 	return cfg.DefaultCurrency
+}
+
+// parseMonth parses a month string in MM, YY-MM or YYYY-MM format and
+// returns the first day of that month.
+func parseMonth(monthStr string) (time.Time, error) {
+	monthStr = strings.TrimSpace(monthStr)
+	now := time.Now()
+
+	// Format: YYYY-MM
+	if t, err := time.Parse("2006-01", monthStr); err == nil {
+		return t.UTC(), nil
+	}
+
+	// Format: YY-MM
+	if t, err := time.Parse("06-01", monthStr); err == nil {
+		return t.UTC(), nil
+	}
+
+	// Format: MM (use current year)
+	if t, err := time.Parse("01", monthStr); err == nil {
+		return time.Date(now.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC), nil
+	}
+
+	return time.Time{}, fmt.Errorf("invalid month: %s (expected MM, YY-MM or YYYY-MM)", monthStr)
 }
 
 func parseDate(dateStr string) time.Time {

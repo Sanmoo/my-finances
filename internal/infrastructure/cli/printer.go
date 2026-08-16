@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/Sanmoo/my-finances/internal/core/usecase"
 	"github.com/Sanmoo/my-finances/internal/domain/entity"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/config"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/i18n"
@@ -88,6 +89,14 @@ func (p *Printer) PrintEntriesByCategoryTable(entries []*entity.Entry, categorie
 
 func (p *Printer) PrintEntriesByCategoryMarkdown(entries []*entity.Entry, categories map[string]*entity.Category, accounts map[string]*entity.Account, filteredAccount string) {
 	fmt.Fprint(p.output, p.formatter.FormatEntriesByCategoryMarkdown(entries, categories, accounts, filteredAccount))
+}
+
+func (p *Printer) PrintStatementTable(output *usecase.StatementOutput, categories map[string]*entity.Category) {
+	fmt.Fprint(p.output, p.formatter.FormatStatementTable(output, categories))
+}
+
+func (p *Printer) PrintStatementMarkdown(output *usecase.StatementOutput, categories map[string]*entity.Category) {
+	fmt.Fprint(p.output, p.formatter.FormatStatementMarkdown(output, categories))
 }
 
 func (p *Printer) PrintReportMarkdown(entries []*entity.Entry, categories map[string]*entity.Category, from, to *time.Time) {

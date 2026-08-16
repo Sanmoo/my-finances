@@ -117,6 +117,110 @@ func TestCreditCard_CalculatePaymentDate(t *testing.T) {
 	}
 }
 
+func TestCreditCard_InvoiceWindow(t *testing.T) {
+	tests := []struct {
+		name       string
+		closingDay int
+		year       int
+		month      time.Month
+		wantStart  time.Time
+		wantEnd    time.Time
+	}{
+		{
+			name:       "regular window around closing day",
+			closingDay: 9,
+			year:       2026,
+			month:      time.June,
+			wantStart:  time.Date(2026, 5, 9, 0, 0, 0, 0, time.UTC),
+			wantEnd:    time.Date(2026, 6, 8, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:       "rolls over to previous year",
+			closingDay: 9,
+			year:       2026,
+			month:      time.January,
+			wantStart:  time.Date(2025, 12, 9, 0, 0, 0, 0, time.UTC),
+			wantEnd:    time.Date(2026, 1, 8, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:       "closing day beyond previous month starts at first of invoice month",
+			closingDay: 31,
+			year:       2026,
+			month:      time.March,
+			wantStart:  time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+			wantEnd:    time.Date(2026, 3, 30, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:       "closing day beyond invoice month ends at its last day",
+			closingDay: 31,
+			year:       2026,
+			month:      time.February,
+			wantStart:  time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC),
+			wantEnd:    time.Date(2026, 2, 28, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:       "closing day 1 covers the whole previous month",
+			closingDay: 1,
+			year:       2026,
+			month:      time.June,
+			wantStart:  time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+			wantEnd:    time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cc := &CreditCard{
+				Name:       "Test Card",
+				ClosingDay: tt.closingDay,
+				DueDay:     16,
+			}
+
+			start, end := cc.InvoiceWindow(tt.year, tt.month)
+			assert.Equal(t, tt.wantStart, start)
+			assert.Equal(t, tt.wantEnd, end)
+		})
+	}
+}
+
+func TestCreditCard_DueDate(t *testing.T) {
+	tests := []struct {
+		name     string
+		dueDay   int
+		year     int
+		month    time.Month
+		wantDate time.Time
+	}{
+		{
+			name:     "regular due date",
+			dueDay:   16,
+			year:     2026,
+			month:    time.June,
+			wantDate: time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "due day beyond month length normalizes like CalculatePaymentDate",
+			dueDay:   31,
+			year:     2026,
+			month:    time.February,
+			wantDate: time.Date(2026, 3, 3, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cc := &CreditCard{
+				Name:       "Test Card",
+				ClosingDay: 9,
+				DueDay:     tt.dueDay,
+			}
+
+			dueDate := cc.DueDate(tt.year, tt.month)
+			assert.Equal(t, tt.wantDate, dueDate)
+		})
+	}
+}
+
 func TestCreditCard_CalculateInstallmentPaymentDate(t *testing.T) {
 	cc := &CreditCard{
 		Name:       "Test Card",

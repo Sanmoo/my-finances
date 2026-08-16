@@ -103,8 +103,8 @@ myfin --db work add expense 100.00 --category lunch
 
 Given a credit card with `closing_day` and `due_day`:
 
-- If `realization_date.day <= closing_day`: first installment payment is `due_day` of the **same month**
-- If `realization_date.day > closing_day`: first installment payment is `due_day` of the **next month**
+- If `realization_date.day < closing_day`: first installment payment is `due_day` of the **same month**
+- If `realization_date.day >= closing_day`: first installment payment is `due_day` of the **next month**
 
 Subsequent installments follow monthly intervals.
 

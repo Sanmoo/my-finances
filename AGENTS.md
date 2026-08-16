@@ -40,7 +40,7 @@ Config: `~/.myfin.yaml` with `data.path`, `default.currency`, `locale` (defaults
 - Tags must be registered before use (`myfin add tag <name>`)
 - `--times` is required when `--credit-card` is specified
 - Categories are scoped per account (`--account` required on `add category`)
-- Credit card payment date: if realization day ≤ closing_day → due same month; otherwise → due next month
+- Credit card payment date: if realization day < closing_day → due same month; otherwise → due next month
 - Amount values accept math expressions via `pkg/expr` (e.g. `1000/3`, `5000+1000`)
 
 ## Conventions
@@ -48,3 +48,17 @@ Config: `~/.myfin.yaml` with `data.path`, `default.currency`, `locale` (defaults
 - Domain entities use functional options pattern (e.g. `WithDescription`, `WithCategoryAlias`)
 - Tests use `stretchr/testify`
 - CLI date flags accept flexible formats: `DD`, `MM-DD`, `YY-MM-DD`, or `YYYY-MM-DD`
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical triage roles, each label string equal to its name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

@@ -189,7 +189,11 @@ var addExpenseCmd = &cobra.Command{
 			return
 		}
 
-		date := parseDate(dateStr)
+		date, err := cli.ParseRealizationDate(dateStr, time.Now())
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
 		currency := getDefaultCurrency()
 
 		entryRepo := factory.NewEntriesRepository()
@@ -255,7 +259,11 @@ var addIncomeCmd = &cobra.Command{
 			return
 		}
 
-		date := parseDate(dateStr)
+		date, err := cli.ParseRealizationDate(dateStr, time.Now())
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
+		}
 		currency := getDefaultCurrency()
 
 		entryRepo := factory.NewEntriesRepository()
@@ -372,11 +380,11 @@ var reportEntriesCmd = &cobra.Command{
 
 		var from, until *time.Time
 		if fromStr != "" {
-			t := parseDate(fromStr)
+			t := cli.ParseDate(fromStr, time.Now())
 			from = &t
 		}
 		if untilStr != "" {
-			t := parseDate(untilStr)
+			t := cli.ParseDate(untilStr, time.Now())
 			until = &t
 		}
 
@@ -462,13 +470,13 @@ var reportBalancesCmd = &cobra.Command{
 
 		var from *time.Time
 		if fromStr != "" {
-			t := parseDate(fromStr)
+			t := cli.ParseDate(fromStr, time.Now())
 			from = &t
 		}
 
 		var until *time.Time
 		if untilStr != "" {
-			t := parseDate(untilStr)
+			t := cli.ParseDate(untilStr, time.Now())
 			until = &t
 		}
 
@@ -642,11 +650,11 @@ var reportByCategoryCmd = &cobra.Command{
 
 		var from, until *time.Time
 		if fromStr != "" {
-			t := parseDate(fromStr)
+			t := cli.ParseDate(fromStr, time.Now())
 			from = &t
 		}
 		if untilStr != "" {
-			t := parseDate(untilStr)
+			t := cli.ParseDate(untilStr, time.Now())
 			until = &t
 		}
 
@@ -847,40 +855,6 @@ func parseMonth(monthStr string) (time.Time, error) {
 	}
 
 	return time.Time{}, fmt.Errorf("invalid month: %s (expected MM, YY-MM or YYYY-MM)", monthStr)
-}
-
-func parseDate(dateStr string) time.Time {
-	if dateStr == "" {
-		return time.Time{}
-	}
-
-	dateStr = strings.TrimSpace(dateStr)
-	now := time.Now()
-
-	// Format: YYYY-MM-DD
-	if t, err := time.Parse("2006-01-02", dateStr); err == nil {
-		return t.UTC()
-	}
-
-	// Format: YY-MM-DD
-	if t, err := time.Parse("06-01-02", dateStr); err == nil {
-		if t.Year() < 100 {
-			t = t.AddDate(2000, 0, 0)
-		}
-		return t.UTC()
-	}
-
-	// Format: MM-DD (use current year)
-	if t, err := time.Parse("01-02", dateStr); err == nil {
-		return time.Date(now.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
-	}
-
-	// Format: DD (use current month and year)
-	if t, err := time.Parse("2", dateStr); err == nil {
-		return time.Date(now.Year(), now.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
-	}
-
-	return time.Time{}
 }
 
 func runInteractive(cmd *cobra.Command, args []string) error {

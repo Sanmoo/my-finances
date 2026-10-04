@@ -427,9 +427,8 @@ func TestWizard_promptDate_Valid(t *testing.T) {
 		textResponses: []string{"2025-06-15"},
 	}
 	w := &Wizard{prompter: prompter}
-	date, dateStr, err := w.promptDate()
+	date, err := w.promptDate()
 	require.NoError(t, err)
-	assert.Equal(t, "2025-06-15", dateStr)
 	assert.Equal(t, 2025, date.Year())
 	assert.Equal(t, time.June, date.Month())
 	assert.Equal(t, 15, date.Day())
@@ -440,10 +439,19 @@ func TestWizard_promptDate_RetryOnInvalid(t *testing.T) {
 		textResponses: []string{"invalid", "2025-06-15"},
 	}
 	w := &Wizard{prompter: prompter}
-	date, dateStr, err := w.promptDate()
+	date, err := w.promptDate()
 	require.NoError(t, err)
-	assert.Equal(t, "2025-06-15", dateStr)
 	assert.False(t, date.IsZero())
+}
+
+func TestWizard_promptDate_BareDay(t *testing.T) {
+	prompter := &fakePrompter{
+		textResponses: []string{"15"},
+	}
+	w := &Wizard{prompter: prompter}
+	date, err := w.promptDate()
+	require.NoError(t, err)
+	assert.Equal(t, 15, date.Day())
 }
 
 // --- promptTimes tests ---
@@ -547,27 +555,6 @@ func TestWizard_execute_WithCreditCard(t *testing.T) {
 	require.NoError(t, err)
 
 	entryRepo.AssertNumberOfCalls(t, "Create", 3)
-}
-
-// --- parseDate tests ---
-
-func TestParseDate(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected time.Time
-	}{
-		{"YYYY-MM-DD", "2025-06-15", time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)},
-		{"empty", "", time.Time{}},
-		{"spaces only", "   ", time.Time{}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := parseDate(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
 }
 
 // --- isTerminal tests ---

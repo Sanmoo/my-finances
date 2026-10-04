@@ -12,6 +12,9 @@ _Avoid_: transaction, lançamento
 The date the purchase actually happened — the `--date` flag passed on the CLI.
 _Avoid_: purchase date
 
+**Bare day**:
+A realization date entered as a day number only (`DD`). It resolves to the most recent occurrence of that day in the past: a day later than today belongs to the previous month (on 04/10, `27` means 27/09). Formats that name a month or a year are taken literally.
+
 **Payment date**:
 For credit card entries, the date the charge lands on the invoice (the day it is paid to the bank). Derived from the realization date plus the card's closing and due days, never entered by the user. Entries without a card have no payment date.
 _Avoid_: due date, charge date

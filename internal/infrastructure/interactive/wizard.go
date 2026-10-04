@@ -119,7 +119,7 @@ func (w *Wizard) runOneCycle() error {
 	}
 
 	// Step 4: Date
-	date, dateStr, err := w.promptDate()
+	date, err := w.promptDate()
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (w *Wizard) runOneCycle() error {
 	}
 
 	// Build command for display
-	cmd := RenderCLI(entryType, amount, accountName, dateStr, description, categoryAlias, creditCardName, tags, times)
+	cmd := RenderCLI(entryType, amount, accountName, date.Format("2006-01-02"), description, categoryAlias, creditCardName, tags, times)
 
 	// Confirmation
 	fmt.Println()
@@ -253,19 +253,24 @@ func (w *Wizard) promptAmount() (string, error) {
 	}
 }
 
-func (w *Wizard) promptDate() (time.Time, string, error) {
+func (w *Wizard) promptDate() (time.Time, error) {
 	today := time.Now().Format("2006-01-02")
 	for {
 		input, err := w.prompter.Text("Data", today)
 		if err != nil {
-			return time.Time{}, "", err
+			return time.Time{}, err
 		}
-		date := parseDate(input)
-		if date.IsZero() {
-			fmt.Println("Data inválida. Use DD, MM-DD, YY-MM-DD ou YYYY-MM-DD.")
+		date, err := cli.ParseRealizationDate(input, time.Now())
+		if err != nil {
+			if errors.Is(err, cli.ErrImpossibleRollback) {
+				fmt.Printf("Dia %s não existe no mês anterior. Use MM-DD ou YYYY-MM-DD.\n", strings.TrimSpace(input))
+			} else {
+				fmt.Println("Data inválida. Use DD, MM-DD, YY-MM-DD ou YYYY-MM-DD.")
+			}
 			continue
 		}
-		return date, input, nil
+		fmt.Printf("Data: %s\n", date.Format("2006-01-02"))
+		return date, nil
 	}
 }
 
@@ -453,35 +458,6 @@ func (w *Wizard) execute(
 	}
 
 	return nil
-}
-
-// parseDate parses flexible date formats. Copied from cmd/main.go.
-// Formats: YYYY-MM-DD, YY-MM-DD, MM-DD, DD.
-func parseDate(dateStr string) time.Time {
-	if dateStr == "" {
-		return time.Time{}
-	}
-
-	dateStr = strings.TrimSpace(dateStr)
-	now := time.Now()
-
-	if t, err := time.Parse("2006-01-02", dateStr); err == nil {
-		return t.UTC()
-	}
-	if t, err := time.Parse("06-01-02", dateStr); err == nil {
-		if t.Year() < 100 {
-			t = t.AddDate(2000, 0, 0)
-		}
-		return t.UTC()
-	}
-	if t, err := time.Parse("01-02", dateStr); err == nil {
-		return time.Date(now.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
-	}
-	if t, err := time.Parse("2", dateStr); err == nil {
-		return time.Date(now.Year(), now.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
-	}
-
-	return time.Time{}
 }
 
 // evalAmount validates a math expression.

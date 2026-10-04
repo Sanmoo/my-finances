@@ -53,7 +53,7 @@ Config: `~/.myfin.yaml` with `data.path`, `default.currency`, `locale` (defaults
 
 ### Issue tracker
 
-Issues and specs live as markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+Issues and specs live as GitHub issues, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

@@ -24,8 +24,12 @@ func TestParseDate(t *testing.T) {
 		expected time.Time
 	}{
 		{"YYYY-MM-DD", "2026-03-15", date(2026, time.March, 15)},
+		{"YYYY-MM-DD reaches the past", "1997-03-15", date(1997, time.March, 15)},
 		{"YY-MM-DD", "26-03-15", date(2026, time.March, 15)},
-		{"YY-MM-DD maps 99 to 1999", "99-03-15", date(1999, time.March, 15)},
+		{"YY-MM-DD starts the century", "00-01-01", date(2000, time.January, 1)},
+		{"YY-MM-DD year 68", "68-12-31", date(2068, time.December, 31)},
+		{"YY-MM-DD year 69", "69-01-01", date(2069, time.January, 1)},
+		{"YY-MM-DD year 99", "99-12-31", date(2099, time.December, 31)},
 		{"MM-DD uses the current year", "03-15", date(2026, time.March, 15)},
 		{"DD uses the current month and year", "15", date(2026, time.October, 15)},
 		{"DD may land in the future", "27", date(2026, time.October, 27)},

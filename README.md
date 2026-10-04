@@ -146,10 +146,10 @@ Use `myfin --help` e `myfin <comando> --help` para ver todas as flags disponíve
 O formato de data é flexível:
 - `DD` - dia do mês atual; se o dia ainda não chegou neste mês, usa o mês anterior (em 04/10, `27` significa 27/09)
 - `MM-DD` - mês e dia do ano atual (ex: `03-15`)
-- `YY-MM-DD` - ano abreviado (ex: `26-03-15`)
+- `YY-MM-DD` - ano abreviado, sempre 20YY (ex: `26-03-15` = 2026-03-15)
 - `YYYY-MM-DD` - data completa (ex: `2026-03-15`)
 
-Só o formato `DD` é ajustado. Formatos que dizem o mês ou o ano são lidos literalmente, mesmo que a data caia no futuro — é assim que se registra um lançamento futuro.
+Só o formato `DD` é ajustado. Formatos que dizem o mês ou o ano são lidos literalmente, mesmo que a data caia no futuro — é assim que se registra um lançamento futuro. Ano abreviado é sempre `20YY`: para uma data anterior a 2000, use o formato completo.
 
 ## Expressões Matemáticas
 

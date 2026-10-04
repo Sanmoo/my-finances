@@ -361,7 +361,7 @@ var reportCmd = &cobra.Command{
 }
 
 var reportEntriesCmd = &cobra.Command{
-	Use:   "entries [--from DD-MM-YY] [--until DD-MM-YY] [--filter-tags x,y] [--filter-categories x,y] [--account name] [--format table|md] [--by-realization]",
+	Use:   "entries [--from YY-MM-DD] [--until YY-MM-DD] [--filter-tags x,y] [--filter-categories x,y] [--account name] [--format table|md] [--by-realization]",
 	Short: "List entries",
 	Run: func(cmd *cobra.Command, args []string) {
 		factory, err := getFactory()
@@ -454,7 +454,7 @@ var reportEntriesCmd = &cobra.Command{
 }
 
 var reportBalancesCmd = &cobra.Command{
-	Use:   "balances [--account name] [--from DD-MM-YY] [--until DD-MM-YY] [--format table|md]",
+	Use:   "balances [--account name] [--from YY-MM-DD] [--until YY-MM-DD] [--format table|md]",
 	Short: "Show account balances",
 	Run: func(cmd *cobra.Command, args []string) {
 		factory, err := getFactory()
@@ -633,7 +633,7 @@ var reportStatementCmd = &cobra.Command{
 }
 
 var reportByCategoryCmd = &cobra.Command{
-	Use:   "by-category [--from DD-MM-YY] [--until DD-MM-YY] [--account name] [--format table|md] [--by-realization]",
+	Use:   "by-category [--from YY-MM-DD] [--until YY-MM-DD] [--account name] [--format table|md] [--by-realization]",
 	Short: "List entries grouped by category",
 	Run: func(cmd *cobra.Command, args []string) {
 		factory, err := getFactory()
@@ -762,16 +762,16 @@ func init() {
 	addIncomeCmd.Flags().StringP("category", "c", "", "category alias")
 	addIncomeCmd.Flags().StringP("description", "D", "", "description")
 
-	reportEntriesCmd.Flags().String("from", "", "start date (DD-MM-YY)")
-	reportEntriesCmd.Flags().String("until", "", "end date (DD-MM-YY)")
+	reportEntriesCmd.Flags().String("from", "", "start date (YY-MM-DD)")
+	reportEntriesCmd.Flags().String("until", "", "end date (YY-MM-DD)")
 	reportEntriesCmd.Flags().String("filter-tags", "", "filter by tags (comma-separated)")
 	reportEntriesCmd.Flags().String("filter-categories", "", "filter by categories (comma-separated)")
 	reportEntriesCmd.Flags().String("account", "", "account name")
 	reportEntriesCmd.Flags().String("format", "table", "output format (table or md)")
 	reportEntriesCmd.Flags().Bool("by-realization", false, "filter by realization date instead of payment date")
 
-	reportBalancesCmd.Flags().String("from", "", "start date (DD-MM-YY)")
-	reportBalancesCmd.Flags().String("until", "", "end date (DD-MM-YY)")
+	reportBalancesCmd.Flags().String("from", "", "start date (YY-MM-DD)")
+	reportBalancesCmd.Flags().String("until", "", "end date (YY-MM-DD)")
 	reportBalancesCmd.Flags().String("account", "", "account name")
 	reportBalancesCmd.Flags().String("format", "table", "output format (table or md)")
 
@@ -780,8 +780,8 @@ func init() {
 	reportStatementCmd.Flags().String("account", "", "account name")
 	reportStatementCmd.Flags().String("format", "table", "output format (table or md)")
 
-	reportByCategoryCmd.Flags().String("from", "", "start date (DD-MM-YY)")
-	reportByCategoryCmd.Flags().String("until", "", "end date (DD-MM-YY)")
+	reportByCategoryCmd.Flags().String("from", "", "start date (YY-MM-DD)")
+	reportByCategoryCmd.Flags().String("until", "", "end date (YY-MM-DD)")
 	reportByCategoryCmd.Flags().String("account", "", "account name")
 	reportByCategoryCmd.Flags().String("format", "table", "output format (table or md)")
 	reportByCategoryCmd.Flags().Bool("by-realization", false, "filter by realization date instead of payment date")
@@ -844,9 +844,9 @@ func parseMonth(monthStr string) (time.Time, error) {
 		return t.UTC(), nil
 	}
 
-	// Format: YY-MM
+	// Format: YY-MM (abbreviated year, always 20YY)
 	if t, err := time.Parse("06-01", monthStr); err == nil {
-		return t.UTC(), nil
+		return cli.ResolveAbbreviatedYear(t), nil
 	}
 
 	// Format: MM (use current year)

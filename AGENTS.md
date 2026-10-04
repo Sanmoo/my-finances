@@ -47,7 +47,7 @@ Config: `~/.myfin.yaml` with `data.path`, `default.currency`, `locale` (defaults
 
 - Domain entities use functional options pattern (e.g. `WithDescription`, `WithCategoryAlias`)
 - Tests use `stretchr/testify`
-- CLI date flags accept flexible formats: `DD`, `MM-DD`, `YY-MM-DD`, or `YYYY-MM-DD`
+- CLI date flags accept flexible formats: `DD`, `MM-DD`, `YY-MM-DD`, or `YYYY-MM-DD`; `--month` accepts `MM`, `YY-MM` or `YYYY-MM`. An abbreviated year (`YY`) is always `20YY`
 
 ## Agent skills
 

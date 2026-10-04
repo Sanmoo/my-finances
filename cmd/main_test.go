@@ -36,6 +36,24 @@ func TestParseMonth(t *testing.T) {
 			wantMonth: time.June,
 		},
 		{
+			name:      "two-digit year 68",
+			input:     "68-12",
+			wantYear:  2068,
+			wantMonth: time.December,
+		},
+		{
+			name:      "two-digit year 69",
+			input:     "69-01",
+			wantYear:  2069,
+			wantMonth: time.January,
+		},
+		{
+			name:      "two-digit year 99",
+			input:     "99-12",
+			wantYear:  2099,
+			wantMonth: time.December,
+		},
+		{
 			name:      "month only uses current year",
 			input:     "06",
 			wantYear:  time.Now().Year(),

@@ -16,8 +16,9 @@ var (
 )
 
 // ParseDate parses a flexible date format: YYYY-MM-DD, YY-MM-DD, MM-DD or DD.
-// Missing parts fall back to now's year and month, even when the result is in the
-// future. It returns the zero time when the input matches no format.
+// An abbreviated year always means 20YY. Missing parts fall back to now's year
+// and month, even when the result is in the future. It returns the zero time
+// when the input matches no format.
 func ParseDate(dateStr string, now time.Time) time.Time {
 	if strings.TrimSpace(dateStr) == "" {
 		return time.Time{}
@@ -32,10 +33,7 @@ func ParseDate(dateStr string, now time.Time) time.Time {
 
 	// Format: YY-MM-DD
 	if t, err := time.Parse("06-01-02", dateStr); err == nil {
-		if t.Year() < 100 {
-			t = t.AddDate(2000, 0, 0)
-		}
-		return t.UTC()
+		return ResolveAbbreviatedYear(t)
 	}
 
 	// Format: MM-DD (use current year)
@@ -49,6 +47,16 @@ func ParseDate(dateStr string, now time.Time) time.Time {
 	}
 
 	return time.Time{}
+}
+
+// ResolveAbbreviatedYear turns a time parsed from a two-digit year layout into
+// the 2000s: 26-03-15 becomes 2026-03-15 and 99-03-15 becomes 2099-03-15.
+// time.Parse maps 69-99 of such a layout onto the twentieth century, which is
+// never what a realization date or an invoice month means. Pass only times from
+// a two-digit year layout; a four-digit year is truncated to its last two digits.
+// The result is midnight UTC, like the rest of the parser.
+func ResolveAbbreviatedYear(t time.Time) time.Time {
+	return time.Date(2000+t.Year()%100, t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 // ParseRealizationDate parses the realization date a user typed. An implicit date

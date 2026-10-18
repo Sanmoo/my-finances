@@ -15,14 +15,6 @@ type Formatter struct {
 	locale *i18n.Locale
 }
 
-type AccountBalance struct {
-	Account            *entity.Account
-	TotalIncome        float64
-	TotalExpense       float64
-	Balance            float64
-	AccumulatedBalance float64
-}
-
 func NewFormatter(locale *i18n.Locale) *Formatter {
 	return &Formatter{locale: locale}
 }
@@ -498,13 +490,13 @@ func (f *Formatter) FormatSummary(entries []*entity.Entry) string {
 	return sb.String()
 }
 
-func (f *Formatter) FormatBalancesTable(accounts []*entity.Account, accountBalances map[string]*AccountBalance, from, to *time.Time) string {
+func (f *Formatter) FormatBalancesTable(balances *usecase.BalancesOutput, from, to *time.Time) string {
 	var sb strings.Builder
 
-	for _, acc := range accounts {
-		ab := accountBalances[acc.Name]
+	for _, acc := range balances.Accounts {
+		ab := balances.Balances[acc.Name]
 		if ab == nil {
-			ab = &AccountBalance{Account: acc}
+			ab = &usecase.Balance{Account: acc}
 		}
 
 		sb.WriteString(fmt.Sprintf("=== %s ===\n\n", acc.Name))
@@ -535,15 +527,15 @@ func (f *Formatter) FormatBalancesTable(accounts []*entity.Account, accountBalan
 	return sb.String()
 }
 
-func (f *Formatter) FormatBalancesMarkdown(accounts []*entity.Account, accountBalances map[string]*AccountBalance, from, to *time.Time) string {
+func (f *Formatter) FormatBalancesMarkdown(balances *usecase.BalancesOutput, from, to *time.Time) string {
 	var sb strings.Builder
 
 	sb.WriteString("# Balances\n\n")
 
-	for _, acc := range accounts {
-		ab := accountBalances[acc.Name]
+	for _, acc := range balances.Accounts {
+		ab := balances.Balances[acc.Name]
 		if ab == nil {
-			ab = &AccountBalance{Account: acc}
+			ab = &usecase.Balance{Account: acc}
 		}
 
 		sb.WriteString(fmt.Sprintf("## %s\n\n", acc.Name))

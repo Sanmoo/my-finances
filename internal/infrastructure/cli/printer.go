@@ -103,12 +103,12 @@ func (p *Printer) PrintReportMarkdown(entries []*entity.Entry, categories map[st
 	fmt.Fprint(p.output, p.formatter.FormatReportMarkdown(entries, categories, from, to))
 }
 
-func (p *Printer) PrintBalancesTable(accounts []*entity.Account, accountBalances map[string]*AccountBalance, from, to *time.Time) {
-	fmt.Fprint(p.output, p.formatter.FormatBalancesTable(accounts, accountBalances, from, to))
+func (p *Printer) PrintBalancesTable(balances *usecase.BalancesOutput, from, to *time.Time) {
+	fmt.Fprint(p.output, p.formatter.FormatBalancesTable(balances, from, to))
 }
 
-func (p *Printer) PrintBalancesMarkdown(accounts []*entity.Account, accountBalances map[string]*AccountBalance, from, to *time.Time) {
-	fmt.Fprint(p.output, p.formatter.FormatBalancesMarkdown(accounts, accountBalances, from, to))
+func (p *Printer) PrintBalancesMarkdown(balances *usecase.BalancesOutput, from, to *time.Time) {
+	fmt.Fprint(p.output, p.formatter.FormatBalancesMarkdown(balances, from, to))
 }
 
 func (p *Printer) PrintError(msg string) {

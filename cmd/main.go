@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Sanmoo/my-finances/internal/core/port"
 	"github.com/Sanmoo/my-finances/internal/core/usecase"
 	"github.com/Sanmoo/my-finances/internal/domain/entity"
 	"github.com/Sanmoo/my-finances/internal/infrastructure/cli"
@@ -483,81 +482,20 @@ var reportBalancesCmd = &cobra.Command{
 		entryRepo := factory.NewEntriesRepository()
 		accountRepo := factory.NewAccountsRepository()
 
-		var accounts []*entity.Account
-		if accountStr != "" {
-			account, err := accountRepo.GetByName(accountStr)
-			if err != nil {
-				printer.PrintError(err.Error())
-				return
-			}
-			if account == nil {
-				printer.PrintError("account not found: " + accountStr)
-				return
-			}
-			accounts = []*entity.Account{account}
-		} else {
-			accounts, err = accountRepo.GetAll()
-			if err != nil {
-				printer.PrintError(err.Error())
-				return
-			}
-		}
-
-		accountBalances := make(map[string]*cli.AccountBalance)
-
-		for _, acc := range accounts {
-			// Get entries within the filtered period (respecting --from and --until)
-			entries, err := entryRepo.GetAll(&port.EntryFilters{
-				FromDate:    from,
-				ToDate:      until,
-				AccountName: acc.Name,
-			})
-			if err != nil {
-				printer.PrintError(err.Error())
-				return
-			}
-
-			var totalIncome, totalExpense float64
-			for _, entry := range entries {
-				if entry.IsIncome() {
-					totalIncome += entry.Amount
-				} else {
-					totalExpense += entry.Amount
-				}
-			}
-
-			// Get accumulated entries up to --until (ignoring --from)
-			accumulatedEntries, err := entryRepo.GetAll(&port.EntryFilters{
-				ToDate:      until,
-				AccountName: acc.Name,
-			})
-			if err != nil {
-				printer.PrintError(err.Error())
-				return
-			}
-
-			var accumulatedBalance float64
-			for _, entry := range accumulatedEntries {
-				if entry.IsIncome() {
-					accumulatedBalance += entry.Amount
-				} else {
-					accumulatedBalance -= entry.Amount
-				}
-			}
-
-			accountBalances[acc.Name] = &cli.AccountBalance{
-				Account:            acc,
-				TotalIncome:        totalIncome,
-				TotalExpense:       totalExpense,
-				Balance:            totalIncome - totalExpense,
-				AccumulatedBalance: accumulatedBalance,
-			}
+		balances, err := usecase.NewBalances(entryRepo, accountRepo).Execute(usecase.BalancesInput{
+			AccountName: accountStr,
+			From:        from,
+			Until:       until,
+		})
+		if err != nil {
+			printer.PrintError(err.Error())
+			return
 		}
 
 		if format == "md" {
-			printer.PrintBalancesMarkdown(accounts, accountBalances, from, until)
+			printer.PrintBalancesMarkdown(balances, from, until)
 		} else {
-			printer.PrintBalancesTable(accounts, accountBalances, from, until)
+			printer.PrintBalancesTable(balances, from, until)
 		}
 	},
 }

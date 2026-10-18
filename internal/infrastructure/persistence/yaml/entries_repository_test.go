@@ -25,6 +25,38 @@ func setupTempRepo(t *testing.T) (*EntriesRepository, string) {
 	return repo, tempDir
 }
 
+func TestEntriesRepository_GetAllDiscoversStoredYears(t *testing.T) {
+	repo, tempDir := setupTempRepo(t)
+	for _, year := range []int{7, 1969, 1997, 2019, 2020, 2050, 2069, 2099} {
+		date := time.Date(year, time.December, 31, 0, 0, 0, 0, time.UTC)
+		entry, err := entity.NewEntry(entity.EntryTypeExpense, float64(year), "BRL", date, entity.WithDescription("year"))
+		require.NoError(t, err)
+		require.NoError(t, repo.Create(entry, "checking"))
+	}
+	entries, err := repo.GetAll(nil)
+	require.NoError(t, err)
+	require.Len(t, entries, 8)
+	assert.Equal(t, 7.0, entries[0].Amount)
+	assert.Equal(t, 2099.0, entries[len(entries)-1].Amount)
+
+	// The account catalog remains authoritative; an unrelated directory is ignored.
+	require.NoError(t, os.MkdirAll(filepath.Join(tempDir, "unregistered", "2050"), 0755))
+}
+
+func TestEntriesRepository_GetAllDiscoveryError(t *testing.T) {
+	repo, tempDir := setupTempRepo(t)
+	require.NoError(t, os.RemoveAll(filepath.Join(tempDir, "checking")))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "checking"), []byte("not a directory"), 0644))
+	entries, err := repo.GetAll(nil)
+	assert.Nil(t, entries)
+	assert.Error(t, err)
+
+	// Excluding the problematic account prevents its storage from being inspected.
+	entries, err = repo.GetAll(&port.EntryFilters{AccountName: "other"})
+	require.NoError(t, err)
+	assert.Empty(t, entries)
+}
+
 func TestEntriesRepository_Create(t *testing.T) {
 	t.Run("creates entry successfully", func(t *testing.T) {
 		repo, _ := setupTempRepo(t)

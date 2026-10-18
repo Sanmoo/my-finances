@@ -393,11 +393,11 @@ var reportEntriesCmd = &cobra.Command{
 		entryRepo := factory.NewEntriesRepository()
 		categoryRepo := factory.NewCategoriesRepository()
 		accountRepo := factory.NewAccountsRepository()
+		ccRepo := factory.NewCreditCardsRepository()
 
-		report := usecase.NewReport(entryRepo, categoryRepo, accountRepo)
+		preparation := usecase.NewReportPreparation(entryRepo, categoryRepo, accountRepo, ccRepo)
 
-		result, err := report.Execute(usecase.ReportInput{
-			Format:                  format,
+		result, err := preparation.PrepareReport(usecase.ReportInput{
 			From:                    from,
 			To:                      until,
 			FilterTags:              filterTags,
@@ -410,44 +410,10 @@ var reportEntriesCmd = &cobra.Command{
 			return
 		}
 
-		categoryMap := make(map[string]*entity.Category)
-		for _, acc := range result.Accounts {
-			categories, err := categoryRepo.GetAll(acc.Name)
-			if err != nil {
-				continue
-			}
-			for _, cat := range categories {
-				categoryMap[cat.Alias] = cat
-			}
-		}
-
-		entries := make([]*entity.Entry, 0)
-		for _, e := range result.Entries {
-			entry := &entity.Entry{
-				Type:              entity.EntryType(e.Type),
-				Amount:            e.Amount,
-				Currency:          e.Currency,
-				Description:       e.Description,
-				CategoryAlias:     e.CategoryAlias,
-				CreditCardName:    e.CreditCardName,
-				Tags:              e.Tags,
-				InstallmentNumber: e.InstallmentNumber,
-				InstallmentTotal:  e.InstallmentTotal,
-				RealizationDate:   e.RealizationDate,
-				PaymentDate:       e.PaymentDate,
-			}
-			entries = append(entries, entry)
-		}
-
-		accounts := make(map[string]*entity.Account)
-		for _, acc := range result.Accounts {
-			accounts[acc.Name] = acc
-		}
-
 		if format == "md" {
-			printer.PrintEntriesMarkdown(entries, categoryMap, accounts, accountStr)
+			printer.PrintEntriesMarkdown(result.Entries, result.Categories, result.AccountsByName, accountStr)
 		} else {
-			printer.PrintEntriesTable(entries, categoryMap, accounts, accountStr)
+			printer.PrintEntriesTable(result.Entries, result.Categories, result.AccountsByName, accountStr)
 		}
 	},
 }
@@ -530,11 +496,13 @@ var reportStatementCmd = &cobra.Command{
 		}
 
 		entryRepo := factory.NewEntriesRepository()
-		ccRepo := factory.NewCreditCardsRepository()
+		categoryRepo := factory.NewCategoriesRepository()
 		accountRepo := factory.NewAccountsRepository()
+		ccRepo := factory.NewCreditCardsRepository()
 
-		statement := usecase.NewStatement(entryRepo, ccRepo, accountRepo)
-		result, err := statement.Execute(usecase.StatementInput{
+		preparation := usecase.NewReportPreparation(entryRepo, categoryRepo, accountRepo, ccRepo)
+
+		result, err := preparation.PrepareStatement(usecase.StatementInput{
 			CreditCardName: cardStr,
 			Year:           month.Year(),
 			Month:          month.Month(),
@@ -545,27 +513,10 @@ var reportStatementCmd = &cobra.Command{
 			return
 		}
 
-		categoryMap := make(map[string]*entity.Category)
-		categoryRepo := factory.NewCategoriesRepository()
-		accounts, err := accountRepo.GetAll()
-		if err != nil {
-			printer.PrintError(err.Error())
-			return
-		}
-		for _, acc := range accounts {
-			categories, err := categoryRepo.GetAll(acc.Name)
-			if err != nil {
-				continue
-			}
-			for _, cat := range categories {
-				categoryMap[cat.Alias] = cat
-			}
-		}
-
 		if format == "md" {
-			printer.PrintStatementMarkdown(result, categoryMap)
+			printer.PrintStatementMarkdown(result.Statement, result.Categories)
 		} else {
-			printer.PrintStatementTable(result, categoryMap)
+			printer.PrintStatementTable(result.Statement, result.Categories)
 		}
 	},
 }
@@ -599,11 +550,11 @@ var reportByCategoryCmd = &cobra.Command{
 		entryRepo := factory.NewEntriesRepository()
 		categoryRepo := factory.NewCategoriesRepository()
 		accountRepo := factory.NewAccountsRepository()
+		ccRepo := factory.NewCreditCardsRepository()
 
-		report := usecase.NewReport(entryRepo, categoryRepo, accountRepo)
+		preparation := usecase.NewReportPreparation(entryRepo, categoryRepo, accountRepo, ccRepo)
 
-		result, err := report.Execute(usecase.ReportInput{
-			Format:                  format,
+		result, err := preparation.PrepareReport(usecase.ReportInput{
 			From:                    from,
 			To:                      until,
 			AccountName:             accountStr,
@@ -614,44 +565,10 @@ var reportByCategoryCmd = &cobra.Command{
 			return
 		}
 
-		categoryMap := make(map[string]*entity.Category)
-		for _, acc := range result.Accounts {
-			categories, err := categoryRepo.GetAll(acc.Name)
-			if err != nil {
-				continue
-			}
-			for _, cat := range categories {
-				categoryMap[cat.Alias] = cat
-			}
-		}
-
-		entries := make([]*entity.Entry, 0)
-		for _, e := range result.Entries {
-			entry := &entity.Entry{
-				Type:              entity.EntryType(e.Type),
-				Amount:            e.Amount,
-				Currency:          e.Currency,
-				Description:       e.Description,
-				CategoryAlias:     e.CategoryAlias,
-				CreditCardName:    e.CreditCardName,
-				Tags:              e.Tags,
-				InstallmentNumber: e.InstallmentNumber,
-				InstallmentTotal:  e.InstallmentTotal,
-				RealizationDate:   e.RealizationDate,
-				PaymentDate:       e.PaymentDate,
-			}
-			entries = append(entries, entry)
-		}
-
-		accounts := make(map[string]*entity.Account)
-		for _, acc := range result.Accounts {
-			accounts[acc.Name] = acc
-		}
-
 		if format == "md" {
-			printer.PrintEntriesByCategoryMarkdown(entries, categoryMap, accounts, accountStr)
+			printer.PrintEntriesByCategoryMarkdown(result.Entries, result.Categories, result.AccountsByName, accountStr)
 		} else {
-			printer.PrintEntriesByCategoryTable(entries, categoryMap, accounts, accountStr)
+			printer.PrintEntriesByCategoryTable(result.Entries, result.Categories, result.AccountsByName, accountStr)
 		}
 	},
 }

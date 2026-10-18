@@ -9,7 +9,6 @@ import (
 )
 
 type ReportInput struct {
-	Format                  string
 	From                    *time.Time
 	To                      *time.Time
 	FilterTags              []string
@@ -18,27 +17,15 @@ type ReportInput struct {
 	FilterByRealizationDate bool
 }
 
+// ReportOutput carries everything the callers need to render the report:
+// the entries in repository order, the legacy category map keyed by alias
+// (see Execute for its exact resolution semantics) and the accounts by name.
 type ReportOutput struct {
-	Entries      []*EntryWithCategory
-	Accounts     []*entity.Account
-	TotalIncome  float64
-	TotalExpense float64
-}
-
-type EntryWithCategory struct {
-	Type              string
-	Amount            float64
-	Currency          string
-	Description       string
-	CategoryAlias     *string
-	CategoryName      string
-	CreditCardName    *string
-	AccountName       string
-	InstallmentNumber int
-	InstallmentTotal  int
-	RealizationDate   time.Time
-	PaymentDate       *time.Time
-	Tags              []string
+	Entries        []*entity.Entry
+	Categories     map[string]*entity.Category
+	AccountsByName map[string]*entity.Account
+	TotalIncome    float64
+	TotalExpense   float64
 }
 
 type Report struct {
@@ -55,6 +42,8 @@ func NewReport(entryRepo port.EntriesRepository, categoryRepo port.CategoriesRep
 	}
 }
 
+// Execute queries the entries, resolves Categories for every account and
+// computes the income/expense totals.
 func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 	filters := &port.EntryFilters{
 		FromDate:                input.From,
@@ -72,25 +61,22 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 		return nil, fmt.Errorf("failed to get entries: %w", err)
 	}
 
-	categoryMap := make(map[string]*entity.Category)
-
 	accounts, err := uc.accountRepo.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get accounts: %w", err)
 	}
 
+	categoryMap := buildLegacyCategoryMap(uc.categoryRepo, accounts)
+
+	accountsByName := make(map[string]*entity.Account, len(accounts))
 	for _, acc := range accounts {
-		categories, err := uc.categoryRepo.GetAll(acc.Name)
-		if err != nil {
-			continue
-		}
-		for _, cat := range categories {
-			categoryMap[cat.Alias] = cat
-		}
+		accountsByName[acc.Name] = acc
 	}
 
 	output := &ReportOutput{
-		Entries: make([]*EntryWithCategory, 0),
+		Entries:        make([]*entity.Entry, 0, len(entries)),
+		Categories:     categoryMap,
+		AccountsByName: accountsByName,
 	}
 
 	for _, entry := range entries {
@@ -102,29 +88,8 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 			if !ok {
 				continue
 			}
-			if !uc.matchesCategoryFilter(cat, input.FilterCategories) {
+			if !matchesCategoryFilter(cat, input.FilterCategories) {
 				continue
-			}
-		}
-
-		entryWithCat := &EntryWithCategory{
-			Type:              string(entry.Type),
-			Amount:            entry.Amount,
-			Currency:          entry.Currency,
-			Description:       entry.Description,
-			CategoryAlias:     entry.CategoryAlias,
-			CreditCardName:    entry.CreditCardName,
-			AccountName:       input.AccountName,
-			InstallmentNumber: entry.InstallmentNumber,
-			InstallmentTotal:  entry.InstallmentTotal,
-			RealizationDate:   entry.RealizationDate,
-			PaymentDate:       entry.PaymentDate,
-			Tags:              entry.Tags,
-		}
-
-		if entry.CategoryAlias != nil {
-			if cat, ok := categoryMap[*entry.CategoryAlias]; ok {
-				entryWithCat.CategoryName = cat.Name
 			}
 		}
 
@@ -134,15 +99,34 @@ func (uc *Report) Execute(input ReportInput) (*ReportOutput, error) {
 			output.TotalExpense += entry.Amount
 		}
 
-		output.Entries = append(output.Entries, entryWithCat)
+		output.Entries = append(output.Entries, entry)
 	}
-
-	output.Accounts = accounts
 
 	return output, nil
 }
 
-func (uc *Report) matchesCategoryFilter(cat *entity.Category, filter []string) bool {
+// buildLegacyCategoryMap resolves Categories per account into the legacy map
+// keyed by alias: accounts are iterated in repository order (even when a
+// specific account filters the entries), the LAST account loaded wins on
+// alias collisions, read errors are ignored and a missing file is just an
+// absent set. This is the deliberately preserved legacy behavior of issue #3.
+func buildLegacyCategoryMap(categoryRepo port.CategoriesRepository, accounts []*entity.Account) map[string]*entity.Category {
+	categoryMap := make(map[string]*entity.Category)
+
+	for _, acc := range accounts {
+		categories, err := categoryRepo.GetAll(acc.Name)
+		if err != nil {
+			continue
+		}
+		for _, cat := range categories {
+			categoryMap[cat.Alias] = cat
+		}
+	}
+
+	return categoryMap
+}
+
+func matchesCategoryFilter(cat *entity.Category, filter []string) bool {
 	for _, f := range filter {
 		if cat.Name == f {
 			return true

@@ -53,6 +53,10 @@ var updateGoldens = flag.Bool("update-goldens", false, "regenerate characterizat
 func runCommand(t *testing.T, dataDir string, args ...string) string {
 	t.Helper()
 
+	// Isolate config/HOME so the printer locale comes from the defaults
+	// (pt-BR), never from the machine running the tests.
+	t.Setenv("HOME", t.TempDir())
+
 	// pflag values persist across Execute() calls on the same command; reset
 	// them so each invocation starts from the flag defaults, like a fresh CLI.
 	resetReportFlags(t)

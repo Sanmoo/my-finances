@@ -33,6 +33,37 @@ func (r *EntriesRepository) getStorageDate(entry *entity.Entry) time.Time {
 	return entry.RealizationDate
 }
 
+func discoverYears(accountPath string) ([]int, error) {
+	yearEntries, err := os.ReadDir(accountPath)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("discover years: %w", err)
+	}
+
+	var years []int
+	for _, yearEntry := range yearEntries {
+		year, err := strconv.Atoi(yearEntry.Name())
+		if err != nil || strconv.Itoa(year) != yearEntry.Name() {
+			continue
+		}
+
+		yearPath := filepath.Join(accountPath, yearEntry.Name())
+		info, err := os.Stat(yearPath)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("inspect year directory %q: %w", yearPath, err)
+		}
+		if info.IsDir() {
+			years = append(years, year)
+		}
+	}
+	return years, nil
+}
+
 func (r *EntriesRepository) Create(entry *entity.Entry, accountName string) error {
 	storageDate := r.getStorageDate(entry)
 	path := r.filePath(accountName, storageDate.Year(), storageDate.Month())
@@ -70,31 +101,12 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 		}
 
 		accountPath := filepath.Join(r.basePath, accountName)
-		yearEntries, err := os.ReadDir(accountPath)
-		if os.IsNotExist(err) {
-			continue
-		}
+		years, err := discoverYears(accountPath)
 		if err != nil {
 			return nil, fmt.Errorf("discover years for account %q: %w", accountName, err)
 		}
 
-		for _, yearEntry := range yearEntries {
-			year, err := strconv.Atoi(yearEntry.Name())
-			if err != nil || strconv.Itoa(year) != yearEntry.Name() {
-				continue
-			}
-			yearPath := filepath.Join(accountPath, yearEntry.Name())
-			info, err := os.Stat(yearPath)
-			if os.IsNotExist(err) {
-				continue
-			}
-			if err != nil {
-				return nil, fmt.Errorf("inspect year directory %q: %w", yearPath, err)
-			}
-			if !info.IsDir() {
-				continue
-			}
-
+		for _, year := range years {
 			for month := time.January; month <= time.December; month++ {
 				path := r.filePath(accountName, year, month)
 				data, err := Read[EntriesData](path)

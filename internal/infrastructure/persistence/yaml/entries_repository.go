@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/Sanmoo/my-finances/internal/core/port"
@@ -63,24 +64,39 @@ func (r *EntriesRepository) GetAll(filters *port.EntryFilters) ([]*entity.Entry,
 	}
 
 	var entries []*entity.Entry
-	currentYear := time.Now().Year()
-	currentMonth := time.Now().Month()
-
 	for _, accountName := range accountsData.Accounts {
 		if filters != nil && filters.AccountName != "" && filters.AccountName != accountName {
 			continue
 		}
 
-		for year := 2020; year <= currentYear+1; year++ {
-			for month := time.January; month <= time.December; month++ {
-				if year == currentYear+1 && month > currentMonth {
-					break
-				}
-				path := r.filePath(accountName, year, month)
-				if _, err := os.Stat(path); os.IsNotExist(err) {
-					continue
-				}
+		accountPath := filepath.Join(r.basePath, accountName)
+		yearEntries, err := os.ReadDir(accountPath)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("discover years for account %q: %w", accountName, err)
+		}
 
+		for _, yearEntry := range yearEntries {
+			year, err := strconv.Atoi(yearEntry.Name())
+			if err != nil || strconv.Itoa(year) != yearEntry.Name() {
+				continue
+			}
+			yearPath := filepath.Join(accountPath, yearEntry.Name())
+			info, err := os.Stat(yearPath)
+			if os.IsNotExist(err) {
+				continue
+			}
+			if err != nil {
+				return nil, fmt.Errorf("inspect year directory %q: %w", yearPath, err)
+			}
+			if !info.IsDir() {
+				continue
+			}
+
+			for month := time.January; month <= time.December; month++ {
+				path := r.filePath(accountName, year, month)
 				data, err := Read[EntriesData](path)
 				if err != nil {
 					continue

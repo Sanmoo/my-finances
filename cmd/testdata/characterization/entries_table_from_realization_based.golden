@@ -1,0 +1,15 @@
+=== Expenses ===
+Date         | Category      | Amount       | Description
+---------------------------------------------------------
+10/01/2026   | alimentação   | R$ 123,45    | Supermarket [market]
+11/01/2026   |               | R$ -20,00    | Refund
+12/01/2026   |               | R$ 30,00     | Unresolved
+16/01/2026   |               | $ 300,00     | [CC] (05/01/2026) - Card dinner
+20/01/2026   | 🍔 food        | R$ 200,00    | Delivery
+21/01/2026   | 🍔 food        | R$ 80,50     | Lunch
+22/01/2026   |               | R$ 60,00     | Deh misc [trip]
+
+=== Incomes ===
+Date         | Category | Amount       | Description
+----------------------------------------------------
+05/01/2026   |          | R$ 1.000,00  | Salary
